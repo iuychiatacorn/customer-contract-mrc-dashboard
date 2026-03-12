@@ -517,48 +517,55 @@ with tabs[1]:
                 match = customer_df[safe_str(customer_df[name_col]) == selected_name]
                 if not match.empty:
                     selected_code = str(match.iloc[0][code_col]).strip()
-if selected_code and code_col:
 
-    main_row = customer_df[safe_str(customer_df[code_col]) == selected_code]
+    if selected_code and code_col:
+        main_row = customer_df[safe_str(customer_df[code_col]) == selected_code]
 
-    if not main_row.empty:
-        record = main_row.iloc[0]
+        if not main_row.empty:
+            record = main_row.iloc[0]
 
-        r1, r2, r3 = st.columns(3, gap="medium")
+            r1, r2, r3 = st.columns(3, gap="medium")
 
-        with r1:
-            card("Customer Code", fmt_value(record.get(code_col, "")))
+            with r1:
+                card("Customer Code", fmt_value(record.get(code_col, "")))
 
-        with r2:
-            card("Customer Name", fmt_value(record.get(name_col, "")))
+            with r2:
+                card("Customer Name", fmt_value(record.get(name_col, "")))
 
-        with r3:
-            card("Tier / Category", fmt_value(record.get(tier_col, "")))
+            with r3:
+                card("Tier / Category", fmt_value(record.get(tier_col, "")))
 
-        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
 
-        r5, r6, r7, r8 = st.columns(4, gap="medium")
+            r5, r6, r7, r8 = st.columns(4, gap="medium")
 
-        with r5:
-            card("Account Manager", fmt_value(record.get(am_col, "")))
+            with r5:
+                card("Account Manager", fmt_value(record.get(am_col, "")))
 
-        with r6:
-            card("Contract Expiration", fmt_value(record.get(exp_col, "")))
+            with r6:
+                card("Contract Expiration", fmt_value(record.get(exp_col, "")))
 
-        with r7:
-            value = to_numeric(pd.Series([record.get(mrr_col, None)])).iloc[0]
-            card("MRR", fmt_currency(value))
+            with r7:
+                value = to_numeric(pd.Series([record.get(mrr_col, None)])).iloc[0]
+                card("MRR", fmt_currency(value))
 
-        with r8:
-            value = to_numeric(pd.Series([record.get(it_mrc_col, None)])).iloc[0]
-            card("IT Services MRC", fmt_currency(value))
+            with r8:
+                value = to_numeric(pd.Series([record.get(it_mrc_col, None)])).iloc[0]
+                card("IT Services MRC", fmt_currency(value))
 
-    
-    st.markdown("#### Full Customer Status Record")
-    st.dataframe(main_row, use_container_width=True, hide_index=True)
+            st.markdown("#### Full Customer Status Record")
+            st.dataframe(main_row, use_container_width=True, hide_index=True)
 
-    related = get_related_rows(sheets, selected_code)
-    st.markdown("#### Related Records Across Sheets")
-        for sheet_name, rel_df in related.items():
-            with st.expander(f"{sheet_name} ({len(rel_df)} row(s))", expanded=(sheet_name == customer_sheet_name)):
-            st.dataframe(rel_df, use_container_width=True, hide_index=True)
+            related = get_related_rows(sheets, selected_code)
+            st.markdown("#### Related Records Across Sheets")
+
+            for sheet_name, rel_df in related.items():
+                if sheet_name == "Project Rate":
+                    continue
+
+                if sheet_name == customer_sheet_name:
+                    st.markdown("### Customer Status")
+                    st.dataframe(rel_df, use_container_width=True, hide_index=True)
+                else:
+                    with st.expander(f"{sheet_name} ({len(rel_df)} row(s))"):
+                        st.dataframe(rel_df, use_container_width=True, hide_index=True)
