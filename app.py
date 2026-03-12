@@ -353,7 +353,7 @@ st.markdown(
 # =========================================================
 # TABS
 # =========================================================
-tabs = st.tabs(["Dashboard"])
+tabs = st.tabs(["Dashboard", "Customer Discovery"])
 
 # =========================================================
 # DASHBOARD TAB
@@ -482,22 +482,37 @@ with tabs[0]:
     st.dataframe(display_df, use_container_width=True, hide_index=True)
     section_close()
 
-    # Customer detail drill-down
-    section_open("Customer Drill-Down", "Select a customer to see detail and related sheet records")
-    d1, d2 = st.columns(2)
+# =========================================================
+# Customer Discovery TAB 
+# =========================================================
+with tabs[1]:
+    st.subheader("Customer Discovery")
+    st.caption("Select a customer to see detail and related sheet records")
 
     selected_code = ""
+
+    d1, d2 = st.columns(2)
+
     with d1:
         if code_col:
-            code_options = sorted(filtered[code_col].dropna().astype(str).unique().tolist())
-            selected_code = st.selectbox("Select customer code", [""] + code_options)
+            code_options = sorted(customer_df[code_col].dropna().astype(str).unique().tolist())
+            selected_code = st.selectbox(
+                "Select customer code",
+                [""] + code_options,
+                key="drilldown_code"
+            )
 
     with d2:
         if name_col:
-            name_options = sorted(filtered[name_col].dropna().astype(str).unique().tolist())
-            selected_name = st.selectbox("Or select customer name", [""] + name_options)
+            name_options = sorted(customer_df[name_col].dropna().astype(str).unique().tolist())
+            selected_name = st.selectbox(
+                "Or select customer name",
+                [""] + name_options,
+                key="drilldown_name"
+            )
+
             if selected_name and code_col:
-                match = filtered[safe_str(filtered[name_col]) == selected_name]
+                match = customer_df[safe_str(customer_df[name_col]) == selected_name]
                 if not match.empty:
                     selected_code = str(match.iloc[0][code_col]).strip()
 
@@ -507,14 +522,12 @@ with tabs[0]:
         if not main_row.empty:
             record = main_row.iloc[0]
 
-            r1, r2, r3, r4 = st.columns(4)
+            r1, r2, r3 = st.columns(4)
             with r1:
                 card("Customer Code", fmt_value(record.get(code_col, "")))
             with r2:
                 card("Customer Name", fmt_value(record.get(name_col, "")) if name_col else "")
             with r3:
-                card("Status", fmt_value(record.get(status_col, "")) if status_col else "")
-            with r4:
                 card("Tier / Category", fmt_value(record.get(tier_col, "")) if tier_col else "")
 
             r5, r6, r7, r8 = st.columns(4)
@@ -537,5 +550,3 @@ with tabs[0]:
             for sheet_name, rel_df in related.items():
                 with st.expander(f"{sheet_name} ({len(rel_df)} row(s))", expanded=(sheet_name == customer_sheet_name)):
                     st.dataframe(rel_df, use_container_width=True, hide_index=True)
-    section_close()
-
