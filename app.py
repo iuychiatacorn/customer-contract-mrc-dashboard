@@ -18,14 +18,15 @@ st.set_page_config(
 st.markdown(
     """
     <style>
+
     .stApp {
         background: linear-gradient(180deg, #07111f 0%, #0b1728 100%);
         color: #e8eef8;
     }
 
     .block-container {
-        padding-top: 1.2rem;
-        padding-bottom: 2rem;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
         max-width: 1500px;
     }
 
@@ -33,85 +34,65 @@ st.markdown(
         font-size: 2rem;
         font-weight: 700;
         color: #f4f7fb;
-        margin-bottom: 0.15rem;
+        margin-bottom: 0.1rem;
     }
 
     .dashboard-subtitle {
         color: #aebcd0;
-        margin-bottom: 1.2rem;
+        margin-bottom: 1rem;
     }
 
     .metric-card {
         background: #12233b;
         border: 1px solid #213753;
-        border-radius: 18px;
-        padding: 18px 20px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.18);
     }
 
     .metric-label {
         color: #9fb3c8;
-        font-size: 0.95rem;
-        margin-bottom: 0.35rem;
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
     }
 
     .metric-value {
         color: #ffffff;
-        font-size: 2rem;
+        font-size: 1.9rem;
         font-weight: 700;
-        line-height: 1.1;
     }
 
     .section-card {
         background: #12233b;
         border: 1px solid #213753;
-        border-radius: 18px;
-        padding: 16px 16px 10px 16px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.20);
-        margin-bottom: 1rem;
+        border-radius: 16px;
+        padding: 14px;
+        margin-bottom: 0.6rem;
     }
 
     .section-title {
         color: #f4f7fb;
-        font-size: 1.1rem;
+        font-size: 1.05rem;
         font-weight: 700;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.2rem;
     }
 
     .section-subtitle {
         color: #9fb3c8;
-        font-size: 0.9rem;
-        margin-bottom: 0.8rem;
+        font-size: 0.85rem;
+        margin-bottom: 0.6rem;
     }
 
     div[data-testid="stDataFrame"] {
-        border-radius: 14px;
+        border-radius: 10px;
         overflow: hidden;
     }
 
-    div[data-baseweb="select"] > div,
-    div[data-testid="stTextInput"] input {
-        background-color: #0f1d31 !important;
-        color: #e8eef8 !important;
-        border-radius: 10px !important;
+    /* remove extra spacing bars */
+    hr {
+        display: none;
     }
 
-    .login-wrap {
-        text-align: center;
-        margin-top: 22vh;
-    }
-
-    .login-title {
-        font-size: 2rem;
-        font-weight: 700;
-        color: white;
-        margin-bottom: 0.3rem;
-    }
-
-    .login-subtitle {
-        color: #9fb3c8;
-        margin-bottom: 1rem;
-    }
     </style>
     """,
     unsafe_allow_html=True
