@@ -366,8 +366,7 @@ st.markdown(
 # =========================================================
 # TABS
 # =========================================================
-other_tabs = [s for s in sheets.keys() if s != customer_sheet_name]
-tabs = st.tabs(["Dashboard", customer_sheet_name] + other_tabs)
+tabs = st.tabs(["Dashboard"])
 
 # =========================================================
 # DASHBOARD TAB
@@ -577,50 +576,3 @@ with tabs[0]:
                     st.dataframe(rel_df, use_container_width=True, hide_index=True)
     section_close()
 
-# =========================================================
-# CUSTOMER STATUS TAB
-# =========================================================
-with tabs[1]:
-    st.subheader(customer_sheet_name)
-    filtered = filter_customer_df(customer_df, key_prefix="customer_status")
-    st.dataframe(filtered, use_container_width=True, hide_index=True)
-
-    st.download_button(
-        "Download filtered CSV",
-        data=filtered.to_csv(index=False).encode("utf-8"),
-        file_name="customer_status_filtered.csv",
-        mime="text/csv"
-    )
-
-# =========================================================
-# OTHER SHEET TABS
-# =========================================================
-for idx, sheet_name in enumerate(other_tabs, start=2):
-    with tabs[idx]:
-        df = sheets[sheet_name]
-        st.subheader(sheet_name)
-
-        search = st.text_input(f"Search in {sheet_name}", key=f"search_{sheet_name}")
-        filtered = df.copy()
-
-        if search:
-            mask = pd.Series(False, index=filtered.index)
-            for col in filtered.columns:
-                mask = mask | safe_str(filtered[col]).str.contains(search, case=False, na=False)
-            filtered = filtered[mask]
-
-        m1, m2 = st.columns(2)
-        with m1:
-            card("Rows", f"{len(filtered):,}")
-        with m2:
-            card("Columns", f"{len(filtered.columns):,}")
-
-        st.dataframe(filtered, use_container_width=True, hide_index=True)
-
-        st.download_button(
-            f"Download {sheet_name} CSV",
-            data=filtered.to_csv(index=False).encode("utf-8"),
-            file_name=f"{sheet_name}.csv",
-            mime="text/csv",
-            key=f"download_{sheet_name}"
-        )
