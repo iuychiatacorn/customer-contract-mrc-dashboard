@@ -234,14 +234,12 @@ def card(label: str, value: str):
 
 
 def section_open(title: str, subtitle: str = ""):
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
-    st.markdown(f'<div class="section-title">{title}</div>', unsafe_allow_html=True)
+    st.markdown(f"### {title}")
     if subtitle:
-        st.markdown(f'<div class="section-subtitle">{subtitle}</div>', unsafe_allow_html=True)
-
+        st.caption(subtitle)
 
 def section_close():
-    st.markdown("</div>", unsafe_allow_html=True)
+    pass
 
 
 @st.cache_data
