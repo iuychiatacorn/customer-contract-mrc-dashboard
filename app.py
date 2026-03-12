@@ -216,9 +216,11 @@ def fmt_currency(v) -> str:
 def fmt_value(v) -> str:
     if pd.isna(v):
         return ""
-    if isinstance(v, pd.Timestamp):
-        return v.strftime("%m/%d/%Y")
-    return str(v)
+    try:
+        dt = pd.to_datetime(v, errors="raise")
+        return dt.strftime("%b %d, %Y")
+    except Exception:
+        return str(v)
 
 
 def card(label: str, value: str):
