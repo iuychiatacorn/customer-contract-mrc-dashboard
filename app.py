@@ -477,12 +477,18 @@ with tabs[0]:
         section_close()
 
     # Customer table
-    section_open("Customer Table", "Filtered master customer view")
-    preferred_cols = [code_col, name_col, tier_col, status_col, am_col, exp_col, mrr_col, it_mrc_col]
-    preferred_cols = [c for c in preferred_cols if c]
-    display_df = filtered[preferred_cols].copy() if preferred_cols else filtered.copy()
-    st.dataframe(display_df, use_container_width=True, hide_index=True)
-    section_close()
+    # Customer table
+section_open("Customer Table", "Filtered master customer view")
+preferred_cols = [code_col, name_col, tier_col, status_col, am_col, exp_col, mrr_col, it_mrc_col]
+preferred_cols = [c for c in preferred_cols if c]
+display_df = filtered[preferred_cols].copy() if preferred_cols else filtered.copy()
+
+if exp_col and exp_col in display_df.columns:
+    display_df[exp_col] = pd.to_datetime(display_df[exp_col], errors="coerce").dt.strftime("%b %d, %Y")
+    display_df[exp_col] = display_df[exp_col].fillna("")
+
+st.dataframe(display_df, use_container_width=True, hide_index=True)
+section_close()
 
 # =========================================================
 # Customer Discovery TAB 
