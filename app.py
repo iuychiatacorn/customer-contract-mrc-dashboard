@@ -168,6 +168,7 @@ NEXT_REVIEW_CANDIDATES = ["Next Business Review", "Next Review", "Next QBR"]
 LAST_REVIEW_CANDIDATES = ["Last Business Review", "Last Review", "Last QBR"]
 QBR_CANDIDATES = ["QBR Generated", "QBR Date"]
 
+
 # =========================================================
 # HELPERS
 # =========================================================
@@ -479,11 +480,11 @@ with tabs[0]:
     # Customer table
     # Customer table
 # Customer table
-section_open("Customer Table", "Filtered master customer view")
-
-preferred_cols = [code_col, name_col, tier_col, status_col, am_col, exp_col, mrr_col, it_mrc_col]
-preferred_cols = [c for c in preferred_cols if c]
-display_df = filtered[preferred_cols].copy() if preferred_cols else filtered.copy()
+        section_open("Customer Table", "Filtered master customer view")
+        
+        preferred_cols = [code_col, name_col, tier_col, status_col, am_col, exp_col, mrr_col, it_mrc_col]
+        preferred_cols = [c for c in preferred_cols if c]
+        display_df = filtered[preferred_cols].copy() if preferred_cols else filtered.copy()
 
 # Format Contract Expiration
 if exp_col and exp_col in display_df.columns:
