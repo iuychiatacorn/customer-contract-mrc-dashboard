@@ -481,8 +481,10 @@ with tabs[0]:
 section_open("Customer Table", "Filtered master customer view")
 preferred_cols = [code_col, name_col, tier_col, status_col, am_col, exp_col, mrr_col, it_mrc_col]
 preferred_cols = [c for c in preferred_cols if c]
+
 display_df = filtered[preferred_cols].copy() if preferred_cols else filtered.copy()
 
+# Format Contract Expiration
 if exp_col and exp_col in display_df.columns:
 
     def format_contract(val):
@@ -490,7 +492,6 @@ if exp_col and exp_col in display_df.columns:
         if pd.isna(val) or val == "":
             return ""
 
-        # preserve month-to-month text
         if isinstance(val, str) and "month" in val.lower():
             return "Month-to-Month"
 
@@ -501,7 +502,19 @@ if exp_col and exp_col in display_df.columns:
 
     display_df[exp_col] = display_df[exp_col].apply(format_contract)
 
-st.dataframe(display_df, use_container_width=True, hide_index=True)
+# Format MRR
+if mrr_col and mrr_col in display_df.columns:
+
+    def format_mrr(val):
+        if pd.isna(val) or val == "":
+            return ""
+
+        try:
+            return "${:,.2f}".format(float(val))
+        except:
+            return val
+
+    display_df[mrr_col] = display_df[mrr_col].apply(format_mrr)
 section_close()
 
 # =========================================================
