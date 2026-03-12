@@ -146,8 +146,10 @@ TIER_CANDIDATES = ["Customer Category", "Category", "Tier", "Service Tier"]
 MRR_CANDIDATES = ["MRR", "MRC", "Monthly Recurring Revenue"]
 IT_MRC_CANDIDATES = [
     "Current IT Services MRC",
+    "Current IT Services MR",
     "Current IT-Services MRC",
     "IT Services MRC",
+    "IT Services MR",
     "IT-Services MRC",
     "Current MRC",
 ]
@@ -332,8 +334,15 @@ def get_total_it_services_mrc_for_filtered(
 
     mrc_code_col = find_col(mrc_df, CODE_CANDIDATES)
     mrc_name_col = find_col(mrc_df, NAME_CANDIDATES)
-    mrc_it_col = find_col(mrc_df, IT_MRC_CANDIDATES)
+    # detect IT Services column more reliably
+    mrc_it_col = None
 
+    for col in mrc_df.columns:
+        c = str(col).lower()
+        if "it" in c and "services" in c and "mrc" in c:
+            mrc_it_col = col
+            break
+            
     if not mrc_it_col:
         return 0.0
 
