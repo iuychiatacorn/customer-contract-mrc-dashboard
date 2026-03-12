@@ -369,7 +369,11 @@ qbr_col = find_col(customer_df, QBR_CANDIDATES)
 
 # MRC sheet columns
 mrc_code_col = find_col(mrc_df, CODE_CANDIDATES) if not mrc_df.empty else None
-mrc_it_mrc_col = find_col(mrc_df, IT_MRC_CANDIDATES) if not mrc_df.empty else None
+mrc_it_mrc_col = None
+for c in mrc_df.columns:
+    if "it" in c.lower() and "mrc" in c.lower():
+        mrc_it_mrc_col = c
+        break
 
 # =========================================================
 # HEADER
