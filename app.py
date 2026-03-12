@@ -522,7 +522,7 @@ with tabs[1]:
         if not main_row.empty:
             record = main_row.iloc[0]
 
-            r1, r2, r3 = st.columns(4)
+            r1, r2, r3 = st.columns(3)
             with r1:
                 card("Customer Code", fmt_value(record.get(code_col, "")))
             with r2:
