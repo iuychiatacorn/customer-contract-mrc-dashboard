@@ -484,8 +484,22 @@ preferred_cols = [c for c in preferred_cols if c]
 display_df = filtered[preferred_cols].copy() if preferred_cols else filtered.copy()
 
 if exp_col and exp_col in display_df.columns:
-    display_df[exp_col] = pd.to_datetime(display_df[exp_col], errors="coerce").dt.strftime("%b %d, %Y")
-    display_df[exp_col] = display_df[exp_col].fillna("")
+
+    def format_contract(val):
+
+        if pd.isna(val) or val == "":
+            return ""
+
+        # preserve month-to-month text
+        if isinstance(val, str) and "month" in val.lower():
+            return "Month-to-Month"
+
+        try:
+            return pd.to_datetime(val).strftime("%b %d, %Y")
+        except:
+            return val
+
+    display_df[exp_col] = display_df[exp_col].apply(format_contract)
 
 st.dataframe(display_df, use_container_width=True, hide_index=True)
 section_close()
