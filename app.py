@@ -560,12 +560,12 @@ with tabs[1]:
             st.markdown("#### Related Records Across Sheets")
 
             for sheet_name, rel_df in related.items():
-                if sheet_name == "Project Rate":
-                    continue
 
-                if sheet_name == customer_sheet_name:
-                    st.markdown("### Customer Status")
-                    st.dataframe(rel_df, use_container_width=True, hide_index=True)
-                else:
-                    with st.expander(f"{sheet_name} ({len(rel_df)} row(s))"):
-                        st.dataframe(rel_df, use_container_width=True, hide_index=True)
+            # Always show Customer Status expanded
+            if sheet_name == customer_sheet_name:
+                st.markdown("### Customer Status")
+                st.dataframe(rel_df, use_container_width=True, hide_index=True)
+
+            else:
+                with st.expander(f"{sheet_name} ({len(rel_df)} row(s))"):
+                st.dataframe(rel_df, use_container_width=True, hide_index=True)
