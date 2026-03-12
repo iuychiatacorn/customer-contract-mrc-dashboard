@@ -1,400 +1,606 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
+from datetime import datetime
 
-# -------------------------------------------------
+# =========================================================
 # PAGE CONFIG
-# -------------------------------------------------
+# =========================================================
 st.set_page_config(
-    page_title="Customer Contract Dashboard",
+    page_title="Customer Tracking Dashboard",
     page_icon="📊",
     layout="wide"
 )
 
-# -------------------------------------------------
-# PASSWORD PROTECTION
-# -------------------------------------------------
-def check_password():
-    st.markdown(
-        """
-        <style>
-        .center-box {
-            text-align: center;
-            margin-top: 20vh;
-        }
+# =========================================================
+# STYLING
+# =========================================================
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background: linear-gradient(180deg, #07111f 0%, #0b1728 100%);
+        color: #e8eef8;
+    }
 
-        div[data-testid="stTextInput"] {
-            max-width: 350px;
-            margin: 0 auto;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+    .block-container {
+        padding-top: 1.2rem;
+        padding-bottom: 2rem;
+        max-width: 1500px;
+    }
 
-    if "password_correct" not in st.session_state:
-        st.session_state.password_correct = False
+    .dashboard-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #f4f7fb;
+        margin-bottom: 0.15rem;
+    }
 
-    if st.session_state.password_correct:
+    .dashboard-subtitle {
+        color: #aebcd0;
+        margin-bottom: 1.2rem;
+    }
+
+    .metric-card {
+        background: #12233b;
+        border: 1px solid #213753;
+        border-radius: 18px;
+        padding: 18px 20px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+    }
+
+    .metric-label {
+        color: #9fb3c8;
+        font-size: 0.95rem;
+        margin-bottom: 0.35rem;
+    }
+
+    .metric-value {
+        color: #ffffff;
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1.1;
+    }
+
+    .section-card {
+        background: #12233b;
+        border: 1px solid #213753;
+        border-radius: 18px;
+        padding: 16px 16px 10px 16px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.20);
+        margin-bottom: 1rem;
+    }
+
+    .section-title {
+        color: #f4f7fb;
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+
+    .section-subtitle {
+        color: #9fb3c8;
+        font-size: 0.9rem;
+        margin-bottom: 0.8rem;
+    }
+
+    div[data-testid="stDataFrame"] {
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    div[data-baseweb="select"] > div,
+    div[data-testid="stTextInput"] input {
+        background-color: #0f1d31 !important;
+        color: #e8eef8 !important;
+        border-radius: 10px !important;
+    }
+
+    .login-wrap {
+        text-align: center;
+        margin-top: 22vh;
+    }
+
+    .login-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: white;
+        margin-bottom: 0.3rem;
+    }
+
+    .login-subtitle {
+        color: #9fb3c8;
+        margin-bottom: 1rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# =========================================================
+# OPTIONAL PASSWORD PROTECTION
+# =========================================================
+def check_password() -> bool:
+    app_password = st.secrets.get("APP_PASSWORD", "")
+
+    if not app_password:
         return True
 
-    col1, col2, col3 = st.columns([1, 2, 1])
+    if "password_ok" not in st.session_state:
+        st.session_state.password_ok = False
 
-    with col2:
-        st.markdown('<div class="center-box">', unsafe_allow_html=True)
-        st.markdown("## 🔐 Enter Password")
-        st.caption("Authorized Access Only")
+    if st.session_state.password_ok:
+        return True
 
-        password = st.text_input("", type="password", placeholder="Enter password")
-
-        if password:
-            if password == st.secrets["APP_PASSWORD"]:
-                st.session_state.password_correct = True
+    c1, c2, c3 = st.columns([1, 1.2, 1])
+    with c2:
+        st.markdown('<div class="login-wrap">', unsafe_allow_html=True)
+        st.markdown('<div class="login-title">🔐 Customer Tracking Dashboard</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-subtitle">Authorized Access Only</div>', unsafe_allow_html=True)
+        pwd = st.text_input("Enter Password", type="password", label_visibility="collapsed", placeholder="Enter password")
+        if pwd:
+            if pwd == app_password:
+                st.session_state.password_ok = True
                 st.rerun()
             else:
                 st.error("Incorrect password")
-
         st.markdown("</div>", unsafe_allow_html=True)
-
     return False
 
 
 if not check_password():
     st.stop()
 
-# -------------------------------------------------
-# FILE PATH
-# -------------------------------------------------
+# =========================================================
+# CONFIG
+# =========================================================
 FILE_PATH = "Customer Contract and MRC Tracking (1).xlsx"
 
-# -------------------------------------------------
-# COLUMN CANDIDATES
-# -------------------------------------------------
-POSSIBLE_CODE_COLUMNS = ["Customer Code", "CustomerCode", "Cust Code", "Code", "Customer ID"]
-POSSIBLE_NAME_COLUMNS = ["Customer Name", "Customer", "Name", "Account Name", "Client Name"]
-POSSIBLE_STATUS_COLUMNS = ["Status", "Customer Status", "Contract Status"]
-POSSIBLE_AM_COLUMNS = ["AM", "Account Manager", "Owner", "Sales Rep"]
-POSSIBLE_CATEGORY_COLUMNS = ["Customer Category", "Category", "Tier", "Service Tier"]
-POSSIBLE_MRR_COLUMNS = ["MRR", "MRC", "Monthly Recurring Revenue"]
-POSSIBLE_IT_MRC_COLUMNS = ["Current IT-Services MRC", "Current IT Services MRC", "IT Services MRC", "Current MRC"]
-POSSIBLE_CONTRACT_EXP_COLUMNS = ["Contract Expiration", "Expiration", "Contract Expiry", "Renewal Date"]
+CODE_CANDIDATES = ["Customer Code", "CustomerCode", "Cust Code", "Code", "Customer ID", "CustomerID"]
+NAME_CANDIDATES = ["Customer Name", "Customer", "Name", "Account Name", "Client Name", "Company"]
+STATUS_CANDIDATES = ["Status", "Customer Status", "Contract Status"]
+AM_CANDIDATES = ["Account Manager", "AM", "Owner", "Sales Rep"]
+TIER_CANDIDATES = ["Customer Category", "Category", "Tier", "Service Tier"]
+MRR_CANDIDATES = ["MRR", "MRC", "Monthly Recurring Revenue"]
+IT_MRC_CANDIDATES = ["Current IT-Services MRC", "Current IT Services MRC", "IT Services MRC", "Current MRC"]
+EXP_CANDIDATES = ["Contract Expiration", "Contract Expiry", "Expiration", "Renewal Date", "Contract End"]
+NEXT_REVIEW_CANDIDATES = ["Next Business Review", "Next Review", "Next QBR"]
+LAST_REVIEW_CANDIDATES = ["Last Business Review", "Last Review", "Last QBR"]
+QBR_CANDIDATES = ["QBR Generated", "QBR Date"]
 
-# -------------------------------------------------
+# =========================================================
 # HELPERS
-# -------------------------------------------------
-def normalize_df(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df = df.dropna(how="all")
-    df.columns = [str(col).strip() for col in df.columns]
-    return df
-
-
-def find_first_matching_column(df: pd.DataFrame, candidates: list[str]):
-    for col in candidates:
-        if col in df.columns:
-            return col
-
-    lowered = {str(col).strip().lower(): col for col in df.columns}
-    for col in candidates:
-        if col.lower() in lowered:
-            return lowered[col.lower()]
+# =========================================================
+def find_col(df: pd.DataFrame, candidates: list[str]):
+    for c in candidates:
+        if c in df.columns:
+            return c
+    lowered = {str(c).strip().lower(): c for c in df.columns}
+    for c in candidates:
+        if c.lower() in lowered:
+            return lowered[c.lower()]
     return None
 
 
-def safe_str_series(series: pd.Series) -> pd.Series:
-    return series.fillna("").astype(str).str.strip()
+def normalize_df(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    df = df.dropna(how="all")
+    df.columns = [str(c).strip() for c in df.columns]
+    return df
 
 
-def to_numeric_series(series: pd.Series) -> pd.Series:
-    cleaned = (
-        series.astype(str)
-        .str.replace("$", "", regex=False)
-        .str.replace(",", "", regex=False)
-        .str.strip()
+def safe_str(s: pd.Series) -> pd.Series:
+    return s.fillna("").astype(str).str.strip()
+
+
+def to_numeric(s: pd.Series) -> pd.Series:
+    return pd.to_numeric(
+        s.astype(str).str.replace("$", "", regex=False).str.replace(",", "", regex=False).str.strip(),
+        errors="coerce"
     )
-    return pd.to_numeric(cleaned, errors="coerce")
 
 
-def format_currency(value):
-    if pd.isna(value):
-        return "$0.00"
-    return f"${value:,.2f}"
+def to_dt(s: pd.Series) -> pd.Series:
+    return pd.to_datetime(s, errors="coerce")
+
+
+def fmt_currency(v) -> str:
+    try:
+        if pd.isna(v):
+            return "$0.00"
+        return f"${float(v):,.2f}"
+    except Exception:
+        return str(v)
+
+
+def fmt_value(v) -> str:
+    if pd.isna(v):
+        return ""
+    if isinstance(v, pd.Timestamp):
+        return v.strftime("%m/%d/%Y")
+    return str(v)
+
+
+def card(label: str, value: str):
+    st.markdown(
+        f"""
+        <div class="metric-card">
+            <div class="metric-label">{label}</div>
+            <div class="metric-value">{value}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+def section_open(title: str, subtitle: str = ""):
+    st.markdown('<div class="section-card">', unsafe_allow_html=True)
+    st.markdown(f'<div class="section-title">{title}</div>', unsafe_allow_html=True)
+    if subtitle:
+        st.markdown(f'<div class="section-subtitle">{subtitle}</div>', unsafe_allow_html=True)
+
+
+def section_close():
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 @st.cache_data
 def load_workbook(path: str):
     xls = pd.ExcelFile(path)
-    sheets = {}
-    for sheet in xls.sheet_names:
-        sheets[sheet] = normalize_df(pd.read_excel(path, sheet_name=sheet))
+    sheets = {sheet: normalize_df(pd.read_excel(path, sheet_name=sheet)) for sheet in xls.sheet_names}
     return sheets
 
 
-def get_related_rows(sheets: dict[str, pd.DataFrame], customer_code: str):
+def get_related_rows(sheets: dict[str, pd.DataFrame], customer_code: str) -> dict[str, pd.DataFrame]:
     related = {}
     for sheet_name, df in sheets.items():
-        code_col = find_first_matching_column(df, POSSIBLE_CODE_COLUMNS)
+        code_col = find_col(df, CODE_CANDIDATES)
         if code_col:
-            matches = df[safe_str_series(df[code_col]) == str(customer_code).strip()]
+            matches = df[safe_str(df[code_col]) == str(customer_code).strip()]
             if not matches.empty:
                 related[sheet_name] = matches
     return related
 
 
-def filter_customer_status(df: pd.DataFrame) -> pd.DataFrame:
-    filtered_df = df.copy()
+def filter_customer_df(df: pd.DataFrame) -> pd.DataFrame:
+    code_col = find_col(df, CODE_CANDIDATES)
+    name_col = find_col(df, NAME_CANDIDATES)
+    status_col = find_col(df, STATUS_CANDIDATES)
+    am_col = find_col(df, AM_CANDIDATES)
+    tier_col = find_col(df, TIER_CANDIDATES)
 
-    code_col = find_first_matching_column(df, POSSIBLE_CODE_COLUMNS)
-    name_col = find_first_matching_column(df, POSSIBLE_NAME_COLUMNS)
-    status_col = find_first_matching_column(df, POSSIBLE_STATUS_COLUMNS)
-    am_col = find_first_matching_column(df, POSSIBLE_AM_COLUMNS)
-    category_col = find_first_matching_column(df, POSSIBLE_CATEGORY_COLUMNS)
-
-    st.markdown("### Filters")
     c1, c2, c3, c4 = st.columns(4)
 
     with c1:
-        search_term = st.text_input(
-            "Search",
-            placeholder="Customer code, name, manager..."
-        )
-
+        search = st.text_input("Search", placeholder="Code, customer, AM...")
     with c2:
-        selected_statuses = []
+        status_sel = []
         if status_col:
-            options = sorted([x for x in safe_str_series(df[status_col]).unique() if x])
-            selected_statuses = st.multiselect("Status", options)
-
+            opts = sorted([x for x in safe_str(df[status_col]).unique() if x])
+            status_sel = st.multiselect("Status", opts)
     with c3:
-        selected_ams = []
+        am_sel = []
         if am_col:
-            options = sorted([x for x in safe_str_series(df[am_col]).unique() if x])
-            selected_ams = st.multiselect("Account Manager", options)
-
+            opts = sorted([x for x in safe_str(df[am_col]).unique() if x])
+            am_sel = st.multiselect("Account Manager", opts)
     with c4:
-        selected_categories = []
-        if category_col:
-            options = sorted([x for x in safe_str_series(df[category_col]).unique() if x])
-            selected_categories = st.multiselect("Category / Tier", options)
+        tier_sel = []
+        if tier_col:
+            opts = sorted([x for x in safe_str(df[tier_col]).unique() if x])
+            tier_sel = st.multiselect("Tier / Category", opts)
 
-    if status_col and selected_statuses:
-        filtered_df = filtered_df[safe_str_series(filtered_df[status_col]).isin(selected_statuses)]
+    filtered = df.copy()
 
-    if am_col and selected_ams:
-        filtered_df = filtered_df[safe_str_series(filtered_df[am_col]).isin(selected_ams)]
+    if status_col and status_sel:
+        filtered = filtered[safe_str(filtered[status_col]).isin(status_sel)]
+    if am_col and am_sel:
+        filtered = filtered[safe_str(filtered[am_col]).isin(am_sel)]
+    if tier_col and tier_sel:
+        filtered = filtered[safe_str(filtered[tier_col]).isin(tier_sel)]
 
-    if category_col and selected_categories:
-        filtered_df = filtered_df[safe_str_series(filtered_df[category_col]).isin(selected_categories)]
-
-    if search_term:
-        mask = pd.Series(False, index=filtered_df.index)
-        search_cols = [c for c in [code_col, name_col, am_col, status_col, category_col] if c]
+    if search:
+        search_cols = [c for c in [code_col, name_col, am_col, status_col, tier_col] if c]
         if not search_cols:
-            search_cols = filtered_df.columns.tolist()
-
+            search_cols = filtered.columns.tolist()
+        mask = pd.Series(False, index=filtered.index)
         for col in search_cols:
-            mask = mask | safe_str_series(filtered_df[col]).str.contains(search_term, case=False, na=False)
-        filtered_df = filtered_df[mask]
+            mask = mask | safe_str(filtered[col]).str.contains(search, case=False, na=False)
+        filtered = filtered[mask]
 
-    return filtered_df
+    return filtered
 
 
-# -------------------------------------------------
+# =========================================================
 # LOAD DATA
-# -------------------------------------------------
+# =========================================================
 sheets = load_workbook(FILE_PATH)
 
-sheet_names = list(sheets.keys())
-ordered_tabs = ["Customer Status"] if "Customer Status" in sheets else []
-ordered_tabs += [sheet for sheet in sheet_names if sheet != "Customer Status"]
+if "Customer Status" in sheets:
+    customer_sheet_name = "Customer Status"
+else:
+    customer_sheet_name = list(sheets.keys())[0]
 
-# -------------------------------------------------
-# APP HEADER
-# -------------------------------------------------
-st.title("📊 Customer Contract Dashboard")
-st.caption("Data and metric driven contract / MRC dashboard")
+customer_df = sheets[customer_sheet_name]
 
-# -------------------------------------------------
+code_col = find_col(customer_df, CODE_CANDIDATES)
+name_col = find_col(customer_df, NAME_CANDIDATES)
+status_col = find_col(customer_df, STATUS_CANDIDATES)
+am_col = find_col(customer_df, AM_CANDIDATES)
+tier_col = find_col(customer_df, TIER_CANDIDATES)
+mrr_col = find_col(customer_df, MRR_CANDIDATES)
+it_mrc_col = find_col(customer_df, IT_MRC_CANDIDATES)
+exp_col = find_col(customer_df, EXP_CANDIDATES)
+next_review_col = find_col(customer_df, NEXT_REVIEW_CANDIDATES)
+last_review_col = find_col(customer_df, LAST_REVIEW_CANDIDATES)
+qbr_col = find_col(customer_df, QBR_CANDIDATES)
+
+# =========================================================
+# HEADER
+# =========================================================
+st.markdown('<div class="dashboard-title">Customer Tracking Dashboard</div>', unsafe_allow_html=True)
+st.markdown(
+    f'<div class="dashboard-subtitle">Workbook source: {customer_sheet_name}</div>',
+    unsafe_allow_html=True
+)
+
+# =========================================================
 # TABS
-# -------------------------------------------------
-tabs = st.tabs(ordered_tabs)
+# =========================================================
+other_tabs = [s for s in sheets.keys() if s != customer_sheet_name]
+tabs = st.tabs(["Dashboard", customer_sheet_name] + other_tabs)
 
-for i, tab_name in enumerate(ordered_tabs):
-    with tabs[i]:
-        df = sheets[tab_name]
+# =========================================================
+# DASHBOARD TAB
+# =========================================================
+with tabs[0]:
+    filtered = filter_customer_df(customer_df)
 
-        # -------------------------------------------------
-        # MAIN TAB
-        # -------------------------------------------------
-        if tab_name == "Customer Status":
-            st.subheader("Customer Status")
+    # KPI calculations
+    total_customers = filtered[code_col].nunique() if code_col else len(filtered)
+    total_mrr = to_numeric(filtered[mrr_col]).fillna(0).sum() if mrr_col else 0
+    total_it_mrc = to_numeric(filtered[it_mrc_col]).fillna(0).sum() if it_mrc_col else 0
 
-            code_col = find_first_matching_column(df, POSSIBLE_CODE_COLUMNS)
-            name_col = find_first_matching_column(df, POSSIBLE_NAME_COLUMNS)
-            status_col = find_first_matching_column(df, POSSIBLE_STATUS_COLUMNS)
-            am_col = find_first_matching_column(df, POSSIBLE_AM_COLUMNS)
-            category_col = find_first_matching_column(df, POSSIBLE_CATEGORY_COLUMNS)
-            mrr_col = find_first_matching_column(df, POSSIBLE_MRR_COLUMNS)
-            it_mrc_col = find_first_matching_column(df, POSSIBLE_IT_MRC_COLUMNS)
-            contract_exp_col = find_first_matching_column(df, POSSIBLE_CONTRACT_EXP_COLUMNS)
+    expiring_90 = 0
+    if exp_col:
+        exp_dates = to_dt(filtered[exp_col])
+        today = pd.Timestamp.today().normalize()
+        expiring_90 = ((exp_dates >= today) & (exp_dates <= today + pd.Timedelta(days=90))).sum()
 
-            filtered_df = filter_customer_status(df)
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        card("Total Customers", f"{int(total_customers):,}")
+    with k2:
+        card("Total MRR", fmt_currency(total_mrr))
+    with k3:
+        card("IT Services MRC", fmt_currency(total_it_mrc))
+    with k4:
+        card("Expiring in 90 Days", f"{int(expiring_90):,}")
 
-            # Metrics
-            total_customers = filtered_df[code_col].nunique() if code_col else len(filtered_df)
+    # Charts + forecast
+    c1, c2, c3 = st.columns([1, 1, 1.3])
 
-            total_mrr = 0.0
-            if mrr_col:
-                total_mrr = to_numeric_series(filtered_df[mrr_col]).fillna(0).sum()
-
-            total_it_mrc = 0.0
-            if it_mrc_col:
-                total_it_mrc = to_numeric_series(filtered_df[it_mrc_col]).fillna(0).sum()
-
-            active_customers = 0
-            if status_col:
-                active_customers = safe_str_series(filtered_df[status_col]).str.lower().isin(
-                    ["active", "current", "live", "in service"]
-                ).sum()
-
-            k1, k2, k3, k4 = st.columns(4)
-            k1.metric("Customers", total_customers)
-            k2.metric("Total MRR", format_currency(total_mrr))
-            k3.metric("Current IT Services MRC", format_currency(total_it_mrc))
-            k4.metric("Active / Current", int(active_customers))
-
-            st.divider()
-
-            # Main table
-            st.markdown("### Customer Table")
-
-            preferred_cols = [
-                code_col, name_col, category_col, status_col,
-                am_col, contract_exp_col, mrr_col, it_mrc_col
-            ]
-            display_cols = [c for c in preferred_cols if c and c in filtered_df.columns]
-
-            if display_cols:
-                table_df = filtered_df[display_cols].copy()
-            else:
-                table_df = filtered_df.copy()
-
-            st.dataframe(
-                table_df,
-                use_container_width=True,
-                hide_index=True
+    with c1:
+        section_open("Customers by Tier", "Current filtered view")
+        if tier_col and not filtered.empty:
+            tier_counts = (
+                safe_str(filtered[tier_col])
+                .replace("", pd.NA)
+                .dropna()
+                .value_counts()
+                .reset_index()
             )
-
-            # Customer selector
-            st.markdown("### Customer Details")
-
-            selected_customer_code = None
-
-            sel1, sel2 = st.columns(2)
-
-            with sel1:
-                if code_col:
-                    code_options = sorted(filtered_df[code_col].dropna().astype(str).unique().tolist())
-                    selected_customer_code = st.selectbox(
-                        "Select customer code",
-                        options=[""] + code_options,
-                        index=0
-                    )
-
-            with sel2:
-                selected_customer_name = ""
-                if name_col:
-                    name_options = sorted(filtered_df[name_col].dropna().astype(str).unique().tolist())
-                    selected_customer_name = st.selectbox(
-                        "Or select customer name",
-                        options=[""] + name_options,
-                        index=0
-                    )
-                    if selected_customer_name and code_col:
-                        match = filtered_df[safe_str_series(filtered_df[name_col]) == selected_customer_name]
-                        if not match.empty:
-                            selected_customer_code = str(match.iloc[0][code_col]).strip()
-
-            if selected_customer_code and code_col:
-                customer_main = df[safe_str_series(df[code_col]) == str(selected_customer_code).strip()]
-
-                if not customer_main.empty:
-                    record = customer_main.iloc[0]
-
-                    d1, d2, d3, d4 = st.columns(4)
-                    if code_col:
-                        d1.metric("Customer Code", str(record.get(code_col, "")))
-                    if name_col:
-                        d2.metric("Customer Name", str(record.get(name_col, "")))
-                    if status_col:
-                        d3.metric("Status", str(record.get(status_col, "")))
-                    if category_col:
-                        d4.metric("Category / Tier", str(record.get(category_col, "")))
-
-                    d5, d6, d7, d8 = st.columns(4)
-                    if am_col:
-                        d5.metric("Account Manager", str(record.get(am_col, "")))
-                    if contract_exp_col:
-                        d6.metric("Contract Expiration", str(record.get(contract_exp_col, "")))
-                    if mrr_col:
-                        mrr_value = to_numeric_series(pd.Series([record.get(mrr_col, None)])).iloc[0]
-                        d7.metric("MRR", format_currency(mrr_value if pd.notna(mrr_value) else 0))
-                    if it_mrc_col:
-                        it_value = to_numeric_series(pd.Series([record.get(it_mrc_col, None)])).iloc[0]
-                        d8.metric("IT Services MRC", format_currency(it_value if pd.notna(it_value) else 0))
-
-                    st.markdown("#### Full Customer Status Record")
-                    st.dataframe(customer_main, use_container_width=True, hide_index=True)
-
-                    related = get_related_rows(sheets, selected_customer_code)
-
-                    st.markdown("#### Related Records Across Sheets")
-                    for related_sheet, related_df in related.items():
-                        with st.expander(f"{related_sheet} ({len(related_df)} row(s))", expanded=(related_sheet == "Customer Status")):
-                            st.dataframe(related_df, use_container_width=True, hide_index=True)
-
-            st.download_button(
-                label="Download filtered Customer Status CSV",
-                data=filtered_df.to_csv(index=False).encode("utf-8"),
-                file_name="customer_status_filtered.csv",
-                mime="text/csv",
-                key="download_customer_status_filtered"
+            tier_counts.columns = ["Tier", "Count"]
+            fig = px.pie(tier_counts, names="Tier", values="Count", hole=0.6)
+            fig.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font_color="#e8eef8",
+                margin=dict(l=0, r=0, t=10, b=0),
+                showlegend=True
             )
-
-        # -------------------------------------------------
-        # OTHER SHEETS
-        # -------------------------------------------------
+            st.plotly_chart(fig, use_container_width=True)
         else:
-            st.subheader(tab_name)
+            st.info("No tier/category data found.")
+        section_close()
 
-            search_term = st.text_input(
-                f"Search in {tab_name}",
-                placeholder="Filter this sheet...",
-                key=f"search_{tab_name}"
+    with c2:
+        section_open("Customers by Status", "Current filtered view")
+        if status_col and not filtered.empty:
+            status_counts = (
+                safe_str(filtered[status_col])
+                .replace("", pd.NA)
+                .dropna()
+                .value_counts()
+                .reset_index()
             )
-
-            filtered_df = df.copy()
-
-            if search_term:
-                mask = pd.Series(False, index=filtered_df.index)
-                for col in filtered_df.columns:
-                    mask = mask | safe_str_series(filtered_df[col]).str.contains(search_term, case=False, na=False)
-                filtered_df = filtered_df[mask]
-
-            # Basic metrics for each sheet
-            m1, m2 = st.columns(2)
-            m1.metric("Rows", len(filtered_df))
-            m2.metric("Columns", len(filtered_df.columns))
-
-            st.dataframe(
-                filtered_df,
-                use_container_width=True,
-                hide_index=True
+            status_counts.columns = ["Status", "Count"]
+            fig = px.pie(status_counts, names="Status", values="Count", hole=0.6)
+            fig.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font_color="#e8eef8",
+                margin=dict(l=0, r=0, t=10, b=0),
+                showlegend=True
             )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No status data found.")
+        section_close()
 
-            st.download_button(
-                label=f"Download {tab_name} CSV",
-                data=filtered_df.to_csv(index=False).encode("utf-8"),
-                file_name=f"{tab_name}.csv",
-                mime="text/csv",
-                key=f"download_{tab_name}"
+    with c3:
+        section_open("Renewal / Review Forecast", "Upcoming items")
+        forecast_df = filtered.copy()
+
+        cols_for_forecast = []
+        for col in [code_col, name_col, am_col, exp_col, next_review_col]:
+            if col and col in forecast_df.columns:
+                cols_for_forecast.append(col)
+
+        if cols_for_forecast:
+            forecast_df = forecast_df[cols_for_forecast].copy()
+
+            if exp_col and exp_col in forecast_df.columns:
+                forecast_df["_sort_exp"] = to_dt(forecast_df[exp_col])
+                forecast_df = forecast_df.sort_values("_sort_exp", ascending=True, na_position="last").drop(columns=["_sort_exp"])
+
+            st.dataframe(forecast_df.head(15), use_container_width=True, hide_index=True)
+        else:
+            st.info("No renewal/review forecast columns found.")
+        section_close()
+
+    # Bottom row
+    b1, b2 = st.columns([1.3, 1])
+
+    with b1:
+        section_open("Top Customers by MRR", "Highest monthly recurring revenue")
+        if mrr_col and name_col:
+            chart_df = filtered.copy()
+            chart_df["_mrr_num"] = to_numeric(chart_df[mrr_col]).fillna(0)
+            group_col = name_col if name_col else code_col
+            top_mrr = (
+                chart_df.groupby(group_col, dropna=False)["_mrr_num"]
+                .sum()
+                .sort_values(ascending=False)
+                .head(10)
+                .reset_index()
             )
+            top_mrr.columns = ["Customer", "MRR"]
+            fig = px.bar(top_mrr, x="Customer", y="MRR")
+            fig.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font_color="#e8eef8",
+                margin=dict(l=0, r=0, t=10, b=0),
+                xaxis_title="",
+                yaxis_title=""
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No MRR/customer columns found.")
+        section_close()
+
+    with b2:
+        section_open("At-Risk / Upcoming Renewals", "Soonest contract expirations")
+        risk_cols = [c for c in [code_col, name_col, status_col, tier_col, am_col, mrr_col, exp_col] if c]
+        if risk_cols:
+            risk_df = filtered[risk_cols].copy()
+            if exp_col:
+                risk_df["_exp_dt"] = to_dt(risk_df[exp_col])
+                risk_df = risk_df.sort_values("_exp_dt", ascending=True, na_position="last").drop(columns=["_exp_dt"])
+            st.dataframe(risk_df.head(15), use_container_width=True, hide_index=True)
+        else:
+            st.info("No risk/renewal fields found.")
+        section_close()
+
+    # Customer table
+    section_open("Customer Table", "Filtered master customer view")
+    preferred_cols = [code_col, name_col, tier_col, status_col, am_col, exp_col, mrr_col, it_mrc_col]
+    preferred_cols = [c for c in preferred_cols if c]
+    display_df = filtered[preferred_cols].copy() if preferred_cols else filtered.copy()
+    st.dataframe(display_df, use_container_width=True, hide_index=True)
+    section_close()
+
+    # Customer detail drill-down
+    section_open("Customer Drill-Down", "Select a customer to see detail and related sheet records")
+    d1, d2 = st.columns(2)
+
+    selected_code = ""
+    with d1:
+        if code_col:
+            code_options = sorted(filtered[code_col].dropna().astype(str).unique().tolist())
+            selected_code = st.selectbox("Select customer code", [""] + code_options)
+
+    with d2:
+        if name_col:
+            name_options = sorted(filtered[name_col].dropna().astype(str).unique().tolist())
+            selected_name = st.selectbox("Or select customer name", [""] + name_options)
+            if selected_name and code_col:
+                match = filtered[safe_str(filtered[name_col]) == selected_name]
+                if not match.empty:
+                    selected_code = str(match.iloc[0][code_col]).strip()
+
+    if selected_code and code_col:
+        main_row = customer_df[safe_str(customer_df[code_col]) == selected_code]
+
+        if not main_row.empty:
+            record = main_row.iloc[0]
+
+            r1, r2, r3, r4 = st.columns(4)
+            with r1:
+                card("Customer Code", fmt_value(record.get(code_col, "")))
+            with r2:
+                card("Customer Name", fmt_value(record.get(name_col, "")) if name_col else "")
+            with r3:
+                card("Status", fmt_value(record.get(status_col, "")) if status_col else "")
+            with r4:
+                card("Tier / Category", fmt_value(record.get(tier_col, "")) if tier_col else "")
+
+            r5, r6, r7, r8 = st.columns(4)
+            with r5:
+                card("Account Manager", fmt_value(record.get(am_col, "")) if am_col else "")
+            with r6:
+                card("Contract Expiration", fmt_value(record.get(exp_col, "")) if exp_col else "")
+            with r7:
+                value = to_numeric(pd.Series([record.get(mrr_col, None)])).iloc[0] if mrr_col else 0
+                card("MRR", fmt_currency(value))
+            with r8:
+                value = to_numeric(pd.Series([record.get(it_mrc_col, None)])).iloc[0] if it_mrc_col else 0
+                card("IT Services MRC", fmt_currency(value))
+
+            st.markdown("#### Full Customer Status Record")
+            st.dataframe(main_row, use_container_width=True, hide_index=True)
+
+            related = get_related_rows(sheets, selected_code)
+            st.markdown("#### Related Records Across Sheets")
+            for sheet_name, rel_df in related.items():
+                with st.expander(f"{sheet_name} ({len(rel_df)} row(s))", expanded=(sheet_name == customer_sheet_name)):
+                    st.dataframe(rel_df, use_container_width=True, hide_index=True)
+    section_close()
+
+# =========================================================
+# CUSTOMER STATUS TAB
+# =========================================================
+with tabs[1]:
+    st.subheader(customer_sheet_name)
+    filtered = filter_customer_df(customer_df)
+    st.dataframe(filtered, use_container_width=True, hide_index=True)
+
+    st.download_button(
+        "Download filtered CSV",
+        data=filtered.to_csv(index=False).encode("utf-8"),
+        file_name="customer_status_filtered.csv",
+        mime="text/csv"
+    )
+
+# =========================================================
+# OTHER SHEET TABS
+# =========================================================
+for idx, sheet_name in enumerate(other_tabs, start=2):
+    with tabs[idx]:
+        df = sheets[sheet_name]
+        st.subheader(sheet_name)
+
+        search = st.text_input(f"Search in {sheet_name}", key=f"search_{sheet_name}")
+        filtered = df.copy()
+
+        if search:
+            mask = pd.Series(False, index=filtered.index)
+            for col in filtered.columns:
+                mask = mask | safe_str(filtered[col]).str.contains(search, case=False, na=False)
+            filtered = filtered[mask]
+
+        m1, m2 = st.columns(2)
+        with m1:
+            card("Rows", f"{len(filtered):,}")
+        with m2:
+            card("Columns", f"{len(filtered.columns):,}")
+
+        st.dataframe(filtered, use_container_width=True, hide_index=True)
+
+        st.download_button(
+            f"Download {sheet_name} CSV",
+            data=filtered.to_csv(index=False).encode("utf-8"),
+            file_name=f"{sheet_name}.csv",
+            mime="text/csv",
+            key=f"download_{sheet_name}"
+        )
