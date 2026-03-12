@@ -554,11 +554,11 @@ if selected_code and code_col:
             card("IT Services MRC", fmt_currency(value))
 
     
-            st.markdown("#### Full Customer Status Record")
-            st.dataframe(main_row, use_container_width=True, hide_index=True)
+    st.markdown("#### Full Customer Status Record")
+    st.dataframe(main_row, use_container_width=True, hide_index=True)
 
-            related = get_related_rows(sheets, selected_code)
-            st.markdown("#### Related Records Across Sheets")
-            for sheet_name, rel_df in related.items():
-                with st.expander(f"{sheet_name} ({len(rel_df)} row(s))", expanded=(sheet_name == customer_sheet_name)):
-                    st.dataframe(rel_df, use_container_width=True, hide_index=True)
+    related = get_related_rows(sheets, selected_code)
+    st.markdown("#### Related Records Across Sheets")
+        for sheet_name, rel_df in related.items():
+            with st.expander(f"{sheet_name} ({len(rel_df)} row(s))", expanded=(sheet_name == customer_sheet_name)):
+            st.dataframe(rel_df, use_container_width=True, hide_index=True)
