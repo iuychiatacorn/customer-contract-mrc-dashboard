@@ -154,7 +154,7 @@ if not check_password():
 # =========================================================
 # CONFIG
 # =========================================================
-FILE_PATH = "Customer Contract and MRC Tracking (1).xlsx"
+FILE_PATH = "Customer Contract and MRC Tracking.xlsx"
 
 CODE_CANDIDATES = ["Customer Code", "CustomerCode", "Cust Code", "Code", "Customer ID", "CustomerID"]
 NAME_CANDIDATES = ["Customer Name", "Customer", "Name", "Account Name", "Client Name", "Company"]
