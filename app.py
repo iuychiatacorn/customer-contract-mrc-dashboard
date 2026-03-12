@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from datetime import datetime
 
 # =========================================================
 # PAGE CONFIG
@@ -62,28 +61,6 @@ st.markdown(
         line-height: 1.1;
     }
 
-    .section-card {
-        background: #12233b;
-        border: 1px solid #213753;
-        border-radius: 18px;
-        padding: 16px 16px 10px 16px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.20);
-        margin-bottom: 1rem;
-    }
-
-    .section-title {
-        color: #f4f7fb;
-        font-size: 1.1rem;
-        font-weight: 700;
-        margin-bottom: 0.25rem;
-    }
-
-    .section-subtitle {
-        color: #9fb3c8;
-        font-size: 0.9rem;
-        margin-bottom: 0.8rem;
-    }
-
     div[data-testid="stDataFrame"] {
         border-radius: 14px;
         overflow: hidden;
@@ -137,7 +114,12 @@ def check_password() -> bool:
         st.markdown('<div class="login-wrap">', unsafe_allow_html=True)
         st.markdown('<div class="login-title">🔐 Customer Tracking Dashboard</div>', unsafe_allow_html=True)
         st.markdown('<div class="login-subtitle">Authorized Access Only</div>', unsafe_allow_html=True)
-        pwd = st.text_input("Enter Password", type="password", label_visibility="collapsed", placeholder="Enter password")
+        pwd = st.text_input(
+            "Enter Password",
+            type="password",
+            label_visibility="collapsed",
+            placeholder="Enter password"
+        )
         if pwd:
             if pwd == app_password:
                 st.session_state.password_ok = True
@@ -162,12 +144,17 @@ STATUS_CANDIDATES = ["Status", "Customer Status", "Contract Status"]
 AM_CANDIDATES = ["Account Manager", "AM", "Owner", "Sales Rep"]
 TIER_CANDIDATES = ["Customer Category", "Category", "Tier", "Service Tier"]
 MRR_CANDIDATES = ["MRR", "MRC", "Monthly Recurring Revenue"]
-IT_MRC_CANDIDATES = ["Current IT-Services MRC", "Current IT Services MRC", "IT Services MRC", "Current MRC"]
+IT_MRC_CANDIDATES = [
+    "Current IT-Services MRC",
+    "Current IT Services MRC",
+    "IT Services MRC",
+    "IT-Services MRC",
+    "Current MRC"
+]
 EXP_CANDIDATES = ["Contract Expiration", "Contract Expiry", "Expiration", "Renewal Date", "Contract End"]
 NEXT_REVIEW_CANDIDATES = ["Next Business Review", "Next Review", "Next QBR"]
 LAST_REVIEW_CANDIDATES = ["Last Business Review", "Last Review", "Last QBR"]
 QBR_CANDIDATES = ["QBR Generated", "QBR Date"]
-
 
 # =========================================================
 # HELPERS
@@ -186,7 +173,10 @@ def find_col(df: pd.DataFrame, candidates: list[str]):
 def normalize_df(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df = df.dropna(how="all")
-    df.columns = [str(c).strip() for c in df.columns]
+    df.columns = [
+        str(c).replace("\n", " ").replace("\r", " ").strip()
+        for c in df.columns
+    ]
     return df
 
 
@@ -196,7 +186,10 @@ def safe_str(s: pd.Series) -> pd.Series:
 
 def to_numeric(s: pd.Series) -> pd.Series:
     return pd.to_numeric(
-        s.astype(str).str.replace("$", "", regex=False).str.replace(",", "", regex=False).str.strip(),
+        s.astype(str)
+        .str.replace("$", "", regex=False)
+        .str.replace(",", "", regex=False)
+        .str.strip(),
         errors="coerce"
     )
 
@@ -217,6 +210,8 @@ def fmt_currency(v) -> str:
 def fmt_value(v) -> str:
     if pd.isna(v):
         return ""
+    if isinstance(v, str) and "month" in v.lower():
+        return "Month-to-Month"
     try:
         dt = pd.to_datetime(v, errors="raise")
         return dt.strftime("%b %d, %Y")
@@ -241,6 +236,7 @@ def section_open(title: str, subtitle: str = ""):
     if subtitle:
         st.caption(subtitle)
 
+
 def section_close():
     pass
 
@@ -255,20 +251,20 @@ def load_workbook(path: str):
 def get_related_rows(sheets: dict[str, pd.DataFrame], customer_code: str) -> dict[str, pd.DataFrame]:
     related = {}
     for sheet_name, df in sheets.items():
-        code_col = find_col(df, CODE_CANDIDATES)
-        if code_col:
-            matches = df[safe_str(df[code_col]) == str(customer_code).strip()]
+        code_col_local = find_col(df, CODE_CANDIDATES)
+        if code_col_local:
+            matches = df[safe_str(df[code_col_local]) == str(customer_code).strip()]
             if not matches.empty:
                 related[sheet_name] = matches
     return related
 
 
 def filter_customer_df(df: pd.DataFrame, key_prefix: str = "main") -> pd.DataFrame:
-    code_col = find_col(df, CODE_CANDIDATES)
-    name_col = find_col(df, NAME_CANDIDATES)
-    status_col = find_col(df, STATUS_CANDIDATES)
-    am_col = find_col(df, AM_CANDIDATES)
-    tier_col = find_col(df, TIER_CANDIDATES)
+    code_col_local = find_col(df, CODE_CANDIDATES)
+    name_col_local = find_col(df, NAME_CANDIDATES)
+    status_col_local = find_col(df, STATUS_CANDIDATES)
+    am_col_local = find_col(df, AM_CANDIDATES)
+    tier_col_local = find_col(df, TIER_CANDIDATES)
 
     c1, c2, c3, c4 = st.columns(4)
 
@@ -281,8 +277,8 @@ def filter_customer_df(df: pd.DataFrame, key_prefix: str = "main") -> pd.DataFra
 
     with c3:
         am_sel = []
-        if am_col:
-            opts = sorted([x for x in safe_str(df[am_col]).unique() if x])
+        if am_col_local:
+            opts = sorted([x for x in safe_str(df[am_col_local]).unique() if x])
             am_sel = st.multiselect(
                 "Account Manager",
                 opts,
@@ -291,33 +287,53 @@ def filter_customer_df(df: pd.DataFrame, key_prefix: str = "main") -> pd.DataFra
 
     with c4:
         tier_sel = []
-        if tier_col:
-            opts = sorted([x for x in safe_str(df[tier_col]).unique() if x])
+        if tier_col_local:
+            opts = sorted([x for x in safe_str(df[tier_col_local]).unique() if x])
             tier_sel = st.multiselect(
                 "Tier / Category",
                 opts,
                 key=f"{key_prefix}_tier"
             )
 
-    filtered = df.copy()
+    filtered_local = df.copy()
 
-    if am_col and am_sel:
-        filtered = filtered[safe_str(filtered[am_col]).isin(am_sel)]
+    if am_col_local and am_sel:
+        filtered_local = filtered_local[safe_str(filtered_local[am_col_local]).isin(am_sel)]
 
-    if tier_col and tier_sel:
-        filtered = filtered[safe_str(filtered[tier_col]).isin(tier_sel)]
+    if tier_col_local and tier_sel:
+        filtered_local = filtered_local[safe_str(filtered_local[tier_col_local]).isin(tier_sel)]
 
     if search:
-        search_cols = [c for c in [code_col, name_col, am_col, status_col, tier_col] if c]
+        search_cols = [c for c in [code_col_local, name_col_local, am_col_local, status_col_local, tier_col_local] if c]
         if not search_cols:
-            search_cols = filtered.columns.tolist()
+            search_cols = filtered_local.columns.tolist()
 
-        mask = pd.Series(False, index=filtered.index)
+        mask = pd.Series(False, index=filtered_local.index)
         for col in search_cols:
-            mask = mask | safe_str(filtered[col]).str.contains(search, case=False, na=False)
-        filtered = filtered[mask]
+            mask = mask | safe_str(filtered_local[col]).str.contains(search, case=False, na=False)
+        filtered_local = filtered_local[mask]
 
-    return filtered
+    return filtered_local
+
+
+def format_contract_cell(val):
+    if pd.isna(val) or val == "":
+        return ""
+    if isinstance(val, str) and "month" in val.lower():
+        return "Month-to-Month"
+    try:
+        return pd.to_datetime(val).strftime("%b %d, %Y")
+    except Exception:
+        return val
+
+
+def format_currency_cell(val):
+    if pd.isna(val) or val == "":
+        return ""
+    try:
+        return "${:,.2f}".format(float(str(val).replace("$", "").replace(",", "")))
+    except Exception:
+        return val
 
 
 # =========================================================
@@ -327,6 +343,8 @@ sheets = load_workbook(FILE_PATH)
 
 if "Customer Status" in sheets:
     customer_sheet_name = "Customer Status"
+elif "Customer status" in sheets:
+    customer_sheet_name = "Customer status"
 else:
     customer_sheet_name = list(sheets.keys())[0]
 
@@ -364,10 +382,14 @@ tabs = st.tabs(["Dashboard", "Customer Discovery"])
 with tabs[0]:
     filtered = filter_customer_df(customer_df, key_prefix="dashboard")
 
-    # KPI calculations
     total_customers = filtered[code_col].nunique() if code_col else len(filtered)
     total_mrr = to_numeric(filtered[mrr_col]).fillna(0).sum() if mrr_col else 0
-    total_it_mrc = to_numeric(filtered[it_mrc_col]).fillna(0).sum() if it_mrc_col else 0
+
+    total_it_mrc = 0
+    if "Current IT-Services MRC" in filtered.columns:
+        total_it_mrc = to_numeric(filtered["Current IT-Services MRC"]).fillna(0).sum()
+    elif it_mrc_col and it_mrc_col in filtered.columns:
+        total_it_mrc = to_numeric(filtered[it_mrc_col]).fillna(0).sum()
 
     expiring_90 = 0
     if exp_col:
@@ -385,7 +407,6 @@ with tabs[0]:
     with k4:
         card("Expiring in 90 Days", f"{int(expiring_90):,}")
 
-    # Charts + forecast
     c1, c2 = st.columns([1, 1.4])
 
     with c1:
@@ -427,13 +448,13 @@ with tabs[0]:
             if exp_col and exp_col in forecast_df.columns:
                 forecast_df["_sort_exp"] = to_dt(forecast_df[exp_col])
                 forecast_df = forecast_df.sort_values("_sort_exp", ascending=True, na_position="last").drop(columns=["_sort_exp"])
+                forecast_df[exp_col] = forecast_df[exp_col].apply(format_contract_cell)
 
             st.dataframe(forecast_df.head(15), use_container_width=True, hide_index=True)
         else:
             st.info("No renewal/review forecast columns found.")
         section_close()
 
-    # Bottom row
     b1, b2 = st.columns([1.3, 1])
 
     with b1:
@@ -469,58 +490,40 @@ with tabs[0]:
         risk_cols = [c for c in [code_col, name_col, status_col, tier_col, am_col, mrr_col, exp_col] if c]
         if risk_cols:
             risk_df = filtered[risk_cols].copy()
-            if exp_col:
+            if exp_col and exp_col in risk_df.columns:
                 risk_df["_exp_dt"] = to_dt(risk_df[exp_col])
                 risk_df = risk_df.sort_values("_exp_dt", ascending=True, na_position="last").drop(columns=["_exp_dt"])
+                risk_df[exp_col] = risk_df[exp_col].apply(format_contract_cell)
+
+            if mrr_col and mrr_col in risk_df.columns:
+                risk_df[mrr_col] = risk_df[mrr_col].apply(format_currency_cell)
+
             st.dataframe(risk_df.head(15), use_container_width=True, hide_index=True)
         else:
             st.info("No risk/renewal fields found.")
         section_close()
 
-    # Customer table
-    # Customer table
-# Customer table
-        section_open("Customer Table", "Filtered master customer view")
-        
-        preferred_cols = [code_col, name_col, tier_col, status_col, am_col, exp_col, mrr_col, it_mrc_col]
-        preferred_cols = [c for c in preferred_cols if c]
-        display_df = filtered[preferred_cols].copy() if preferred_cols else filtered.copy()
+    section_open("Customer Table", "Filtered master customer view")
 
-# Format Contract Expiration
-if exp_col and exp_col in display_df.columns:
-    def format_contract(val):
-        if pd.isna(val) or val == "":
-            return ""
-        if isinstance(val, str) and "month" in val.lower():
-            return "Month-to-Month"
-        try:
-            return pd.to_datetime(val).strftime("%b %d, %Y")
-        except Exception:
-            return val
+    preferred_cols = [code_col, name_col, tier_col, status_col, am_col, exp_col, mrr_col, it_mrc_col]
+    preferred_cols = [c for c in preferred_cols if c]
+    display_df = filtered[preferred_cols].copy() if preferred_cols else filtered.copy()
 
-    display_df[exp_col] = display_df[exp_col].apply(format_contract)
+    if exp_col and exp_col in display_df.columns:
+        display_df[exp_col] = display_df[exp_col].apply(format_contract_cell)
 
-# Format currency fields
-def format_currency_cell(val):
-    if pd.isna(val) or val == "":
-        return ""
-    try:
-        return "${:,.2f}".format(float(str(val).replace("$", "").replace(",", "")))
-    except Exception:
-        return val
+    if mrr_col and mrr_col in display_df.columns:
+        display_df[mrr_col] = display_df[mrr_col].apply(format_currency_cell)
 
-if mrr_col and mrr_col in display_df.columns:
-    display_df[mrr_col] = display_df[mrr_col].apply(format_currency_cell)
+    if it_mrc_col and it_mrc_col in display_df.columns:
+        display_df[it_mrc_col] = display_df[it_mrc_col].apply(format_currency_cell)
 
-if it_mrc_col and it_mrc_col in display_df.columns:
-    display_df[it_mrc_col] = display_df[it_mrc_col].apply(format_currency_cell)
+    st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-st.dataframe(display_df, use_container_width=True, hide_index=True)
-
-section_close()
+    section_close()
 
 # =========================================================
-# Customer Discovery TAB 
+# CUSTOMER DISCOVERY TAB
 # =========================================================
 with tabs[1]:
     st.subheader("Customer Discovery")
@@ -581,26 +584,49 @@ with tabs[1]:
                 card("Contract Expiration", fmt_value(record.get(exp_col, "")))
 
             with r7:
-                value = to_numeric(pd.Series([record.get(mrr_col, None)])).iloc[0]
+                value = to_numeric(pd.Series([record.get(mrr_col, None)])).iloc[0] if mrr_col else 0
                 card("MRR", fmt_currency(value))
 
             with r8:
-                value = to_numeric(pd.Series([record.get(it_mrc_col, None)])).iloc[0]
+                value = to_numeric(pd.Series([record.get(it_mrc_col, None)])).iloc[0] if it_mrc_col else 0
                 card("IT Services MRC", fmt_currency(value))
 
             st.markdown("#### Full Customer Status Record")
-            st.dataframe(main_row, use_container_width=True, hide_index=True)
+            main_row_display = main_row.copy()
+
+            if exp_col and exp_col in main_row_display.columns:
+                main_row_display[exp_col] = main_row_display[exp_col].apply(format_contract_cell)
+
+            if mrr_col and mrr_col in main_row_display.columns:
+                main_row_display[mrr_col] = main_row_display[mrr_col].apply(format_currency_cell)
+
+            if it_mrc_col and it_mrc_col in main_row_display.columns:
+                main_row_display[it_mrc_col] = main_row_display[it_mrc_col].apply(format_currency_cell)
+
+            st.dataframe(main_row_display, use_container_width=True, hide_index=True)
 
             related = get_related_rows(sheets, selected_code)
             st.markdown("#### Related Records Across Sheets")
 
             for sheet_name, rel_df in related.items():
+                rel_display = rel_df.copy()
 
-                # Always show Customer Status expanded
+                rel_exp_col = find_col(rel_display, EXP_CANDIDATES)
+                rel_mrr_col = find_col(rel_display, MRR_CANDIDATES)
+                rel_it_mrc_col = find_col(rel_display, IT_MRC_CANDIDATES)
+
+                if rel_exp_col and rel_exp_col in rel_display.columns:
+                    rel_display[rel_exp_col] = rel_display[rel_exp_col].apply(format_contract_cell)
+
+                if rel_mrr_col and rel_mrr_col in rel_display.columns:
+                    rel_display[rel_mrr_col] = rel_display[rel_mrr_col].apply(format_currency_cell)
+
+                if rel_it_mrc_col and rel_it_mrc_col in rel_display.columns:
+                    rel_display[rel_it_mrc_col] = rel_display[rel_it_mrc_col].apply(format_currency_cell)
+
                 if sheet_name == customer_sheet_name:
                     st.markdown("### Customer Status")
-                    st.dataframe(rel_df, use_container_width=True, hide_index=True)
-
+                    st.dataframe(rel_display, use_container_width=True, hide_index=True)
                 else:
-                    with st.expander(f"{sheet_name} ({len(rel_df)} row(s))"):
-                        st.dataframe(rel_df, use_container_width=True, hide_index=True)
+                    with st.expander(f"{sheet_name} ({len(rel_display)} row(s))"):
+                        st.dataframe(rel_display, use_container_width=True, hide_index=True)
