@@ -522,26 +522,36 @@ with tabs[1]:
         if not main_row.empty:
             record = main_row.iloc[0]
 
-            r1, r2, r3 = st.columns(3)
-            with r1:
-                card("Customer Code", fmt_value(record.get(code_col, "")))
-            with r2:
-                card("Customer Name", fmt_value(record.get(name_col, "")) if name_col else "")
-            with r3:
-                card("Tier / Category", fmt_value(record.get(tier_col, "")) if tier_col else "")
+         r1, r2, r3 = st.columns(3, gap="medium")
 
-            r5, r6, r7, r8 = st.columns(4)
-            with r5:
-                card("Account Manager", fmt_value(record.get(am_col, "")) if am_col else "")
-            with r6:
-                card("Contract Expiration", fmt_value(record.get(exp_col, "")) if exp_col else "")
-            with r7:
-                value = to_numeric(pd.Series([record.get(mrr_col, None)])).iloc[0] if mrr_col else 0
-                card("MRR", fmt_currency(value))
-            with r8:
-                value = to_numeric(pd.Series([record.get(it_mrc_col, None)])).iloc[0] if it_mrc_col else 0
-                card("IT Services MRC", fmt_currency(value))
+with r1:
+    card("Customer Code", fmt_value(record.get(code_col, "")))
 
+with r2:
+    card("Customer Name", fmt_value(record.get(name_col, "")) if name_col else "")
+
+with r3:
+    card("Tier / Category", fmt_value(record.get(tier_col, "")) if tier_col else "")
+
+st.markdown("<div style='height: 14px;'></div>", unsafe_allow_html=True)
+
+r5, r6, r7, r8 = st.columns(4, gap="medium")
+
+with r5:
+    card("Account Manager", fmt_value(record.get(am_col, "")) if am_col else "")
+
+with r6:
+    card("Contract Expiration", fmt_value(record.get(exp_col, "")) if exp_col else "")
+
+with r7:
+    value = to_numeric(pd.Series([record.get(mrr_col, None)])).iloc[0] if mrr_col else 0
+    card("MRR", fmt_currency(value))
+
+with r8:
+    value = to_numeric(pd.Series([record.get(it_mrc_col, None)])).iloc[0] if it_mrc_col else 0
+    card("IT Services MRC", fmt_currency(value))
+
+    
             st.markdown("#### Full Customer Status Record")
             st.dataframe(main_row, use_container_width=True, hide_index=True)
 
