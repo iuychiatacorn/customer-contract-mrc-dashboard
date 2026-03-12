@@ -396,36 +396,36 @@ with tabs[0]:
     filtered = filter_customer_df(customer_df, key_prefix="dashboard")
 
     total_customers = filtered[code_col].nunique() if code_col else len(filtered)
-total_mrr = to_numeric(filtered[mrr_col]).fillna(0).sum() if mrr_col else 0
-
-total_it_mrc = 0
-
-if not mrc_df.empty:
-    mrc_it_mrc_col = None
-    for c in mrc_df.columns:
-        if "it" in str(c).lower() and "mrc" in str(c).lower():
-            mrc_it_mrc_col = c
-            break
-
-    if mrc_it_mrc_col:
-        total_it_mrc = to_numeric(mrc_df[mrc_it_mrc_col]).fillna(0).sum()
-
-expiring_90 = 0
-if exp_col:
-    exp_dates = to_dt(filtered[exp_col])
-    today = pd.Timestamp.today().normalize()
-    expiring_90 = ((exp_dates >= today) & (exp_dates <= today + pd.Timedelta(days=90))).sum()
-
-k1, k2, k3, k4 = st.columns(4)
-with k1:
-    card("Total Customers", f"{int(total_customers):,}")
-with k2:
-    card("Total MRR", fmt_currency(total_mrr))
-with k3:
-    card("IT Services MRC", fmt_currency(total_it_mrc))
-with k4:
-    card("Expiring in 90 Days", f"{int(expiring_90):,}")
-    c1, c2 = st.columns([1, 1.4])
+    total_mrr = to_numeric(filtered[mrr_col]).fillna(0).sum() if mrr_col else 0
+    
+    total_it_mrc = 0
+    
+    if not mrc_df.empty:
+        mrc_it_mrc_col = None
+        for c in mrc_df.columns:
+            if "it" in str(c).lower() and "mrc" in str(c).lower():
+                mrc_it_mrc_col = c
+                break
+    
+        if mrc_it_mrc_col:
+            total_it_mrc = to_numeric(mrc_df[mrc_it_mrc_col]).fillna(0).sum()
+    
+    expiring_90 = 0
+    if exp_col:
+        exp_dates = to_dt(filtered[exp_col])
+        today = pd.Timestamp.today().normalize()
+        expiring_90 = ((exp_dates >= today) & (exp_dates <= today + pd.Timedelta(days=90))).sum()
+    
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        card("Total Customers", f"{int(total_customers):,}")
+    with k2:
+        card("Total MRR", fmt_currency(total_mrr))
+    with k3:
+        card("IT Services MRC", fmt_currency(total_it_mrc))
+    with k4:
+        card("Expiring in 90 Days", f"{int(expiring_90):,}")
+        c1, c2 = st.columns([1, 1.4])
 
     with c1:
         section_open("Customers by Tier", "Current filtered view")
