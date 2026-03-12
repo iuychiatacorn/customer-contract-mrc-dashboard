@@ -395,8 +395,8 @@ tabs = st.tabs(["Dashboard", "Customer Discovery"])
 with tabs[0]:
     filtered = filter_customer_df(customer_df, key_prefix="dashboard")
 
-    total_customers = filtered[code_col].nunique() if code_col else len(filtered)
-    total_mrr = to_numeric(filtered[mrr_col]).fillna(0).sum() if mrr_col else 0
+        total_customers = filtered[code_col].nunique() if code_col else len(filtered)
+        total_mrr = to_numeric(filtered[mrr_col]).fillna(0).sum() if mrr_col else 0
     
     total_it_mrc = 0
     
