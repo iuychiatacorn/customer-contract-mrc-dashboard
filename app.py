@@ -6,22 +6,47 @@ import streamlit as st
 import plotly.express as px
 
 def check_password():
+
+    st.markdown(
+        """
+        <style>
+        .center-box {
+            text-align: center;
+            margin-top: 20vh;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
     if "password_correct" not in st.session_state:
         st.session_state.password_correct = False
 
     if st.session_state.password_correct:
         return True
 
-    password = st.text_input("Enter password", type="password")
+    # Create centered layout
+    col1, col2, col3 = st.columns([1,2,1])
 
-    if password:
-        if password == st.secrets["APP_PASSWORD"]:
-            st.session_state.password_correct = True
-            st.rerun()
-        else:
-            st.error("Incorrect password")
+    with col2:
+
+        st.markdown('<div class="center-box">', unsafe_allow_html=True)
+
+        st.markdown("## 🔐 Enter Password")
+
+        password = st.text_input("", type="password")
+
+        if password:
+            if password == st.secrets["APP_PASSWORD"]:
+                st.session_state.password_correct = True
+                st.rerun()
+            else:
+                st.error("Incorrect password")
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
     return False
+
 
 if not check_password():
     st.stop()
