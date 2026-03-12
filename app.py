@@ -478,43 +478,44 @@ with tabs[0]:
 
     # Customer table
     # Customer table
+# Customer table
 section_open("Customer Table", "Filtered master customer view")
+
 preferred_cols = [code_col, name_col, tier_col, status_col, am_col, exp_col, mrr_col, it_mrc_col]
 preferred_cols = [c for c in preferred_cols if c]
-
 display_df = filtered[preferred_cols].copy() if preferred_cols else filtered.copy()
 
 # Format Contract Expiration
 if exp_col and exp_col in display_df.columns:
-
     def format_contract(val):
-
         if pd.isna(val) or val == "":
             return ""
-
         if isinstance(val, str) and "month" in val.lower():
             return "Month-to-Month"
-
         try:
             return pd.to_datetime(val).strftime("%b %d, %Y")
-        except:
+        except Exception:
             return val
 
     display_df[exp_col] = display_df[exp_col].apply(format_contract)
 
-# Format MRR
+# Format currency fields
+def format_currency_cell(val):
+    if pd.isna(val) or val == "":
+        return ""
+    try:
+        return "${:,.2f}".format(float(str(val).replace("$", "").replace(",", "")))
+    except Exception:
+        return val
+
 if mrr_col and mrr_col in display_df.columns:
+    display_df[mrr_col] = display_df[mrr_col].apply(format_currency_cell)
 
-    def format_mrr(val):
-        if pd.isna(val) or val == "":
-            return ""
+if it_mrc_col and it_mrc_col in display_df.columns:
+    display_df[it_mrc_col] = display_df[it_mrc_col].apply(format_currency_cell)
 
-        try:
-            return "${:,.2f}".format(float(val))
-        except:
-            return val
+st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    display_df[mrr_col] = display_df[mrr_col].apply(format_mrr)
 section_close()
 
 # =========================================================
