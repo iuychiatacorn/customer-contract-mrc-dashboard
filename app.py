@@ -260,7 +260,7 @@ def get_related_rows(sheets: dict[str, pd.DataFrame], customer_code: str) -> dic
     return related
 
 
-def filter_customer_df(df: pd.DataFrame) -> pd.DataFrame:
+def filter_customer_df(df: pd.DataFrame, key_prefix: str = "main") -> pd.DataFrame:
     code_col = find_col(df, CODE_CANDIDATES)
     name_col = find_col(df, NAME_CANDIDATES)
     status_col = find_col(df, STATUS_CANDIDATES)
@@ -270,29 +270,50 @@ def filter_customer_df(df: pd.DataFrame) -> pd.DataFrame:
     c1, c2, c3, c4 = st.columns(4)
 
     with c1:
-        search = st.text_input("Search", placeholder="Code, customer, AM...")
+        search = st.text_input(
+            "Search",
+            placeholder="Code, customer, AM...",
+            key=f"{key_prefix}_search"
+        )
+
     with c2:
         status_sel = []
         if status_col:
             opts = sorted([x for x in safe_str(df[status_col]).unique() if x])
-            status_sel = st.multiselect("Status", opts)
+            status_sel = st.multiselect(
+                "Status",
+                opts,
+                key=f"{key_prefix}_status"
+            )
+
     with c3:
         am_sel = []
         if am_col:
             opts = sorted([x for x in safe_str(df[am_col]).unique() if x])
-            am_sel = st.multiselect("Account Manager", opts)
+            am_sel = st.multiselect(
+                "Account Manager",
+                opts,
+                key=f"{key_prefix}_am"
+            )
+
     with c4:
         tier_sel = []
         if tier_col:
             opts = sorted([x for x in safe_str(df[tier_col]).unique() if x])
-            tier_sel = st.multiselect("Tier / Category", opts)
+            tier_sel = st.multiselect(
+                "Tier / Category",
+                opts,
+                key=f"{key_prefix}_tier"
+            )
 
     filtered = df.copy()
 
     if status_col and status_sel:
         filtered = filtered[safe_str(filtered[status_col]).isin(status_sel)]
+
     if am_col and am_sel:
         filtered = filtered[safe_str(filtered[am_col]).isin(am_sel)]
+
     if tier_col and tier_sel:
         filtered = filtered[safe_str(filtered[tier_col]).isin(tier_sel)]
 
@@ -300,6 +321,7 @@ def filter_customer_df(df: pd.DataFrame) -> pd.DataFrame:
         search_cols = [c for c in [code_col, name_col, am_col, status_col, tier_col] if c]
         if not search_cols:
             search_cols = filtered.columns.tolist()
+
         mask = pd.Series(False, index=filtered.index)
         for col in search_cols:
             mask = mask | safe_str(filtered[col]).str.contains(search, case=False, na=False)
@@ -351,7 +373,7 @@ tabs = st.tabs(["Dashboard", customer_sheet_name] + other_tabs)
 # DASHBOARD TAB
 # =========================================================
 with tabs[0]:
-    filtered = filter_customer_df(customer_df)
+    filtered = filter_customer_df(customer_df, key_prefix="dashboard")
 
     # KPI calculations
     total_customers = filtered[code_col].nunique() if code_col else len(filtered)
@@ -560,7 +582,7 @@ with tabs[0]:
 # =========================================================
 with tabs[1]:
     st.subheader(customer_sheet_name)
-    filtered = filter_customer_df(customer_df)
+    filtered = filter_customer_df(customer_df, key_prefix="customer_status")
     st.dataframe(filtered, use_container_width=True, hide_index=True)
 
     st.download_button(
