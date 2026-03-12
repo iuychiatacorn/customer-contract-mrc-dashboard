@@ -276,16 +276,6 @@ def filter_customer_df(df: pd.DataFrame, key_prefix: str = "main") -> pd.DataFra
             key=f"{key_prefix}_search"
         )
 
-    with c2:
-        status_sel = []
-        if status_col:
-            opts = sorted([x for x in safe_str(df[status_col]).unique() if x])
-            status_sel = st.multiselect(
-                "Status",
-                opts,
-                key=f"{key_prefix}_status"
-            )
-
     with c3:
         am_sel = []
         if am_col:
@@ -307,9 +297,6 @@ def filter_customer_df(df: pd.DataFrame, key_prefix: str = "main") -> pd.DataFra
             )
 
     filtered = df.copy()
-
-    if status_col and status_sel:
-        filtered = filtered[safe_str(filtered[status_col]).isin(status_sel)]
 
     if am_col and am_sel:
         filtered = filtered[safe_str(filtered[am_col]).isin(am_sel)]
@@ -396,7 +383,7 @@ with tabs[0]:
         card("Expiring in 90 Days", f"{int(expiring_90):,}")
 
     # Charts + forecast
-    c1, c2, c3 = st.columns([1, 1, 1.3])
+    c1, c2 = st.columns([1, 1.4])
 
     with c1:
         section_open("Customers by Tier", "Current filtered view")
@@ -423,30 +410,6 @@ with tabs[0]:
         section_close()
 
     with c2:
-        section_open("Customers by Status", "Current filtered view")
-        if status_col and not filtered.empty:
-            status_counts = (
-                safe_str(filtered[status_col])
-                .replace("", pd.NA)
-                .dropna()
-                .value_counts()
-                .reset_index()
-            )
-            status_counts.columns = ["Status", "Count"]
-            fig = px.pie(status_counts, names="Status", values="Count", hole=0.6)
-            fig.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                font_color="#e8eef8",
-                margin=dict(l=0, r=0, t=10, b=0),
-                showlegend=True
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No status data found.")
-        section_close()
-
-    with c3:
         section_open("Renewal / Review Forecast", "Upcoming items")
         forecast_df = filtered.copy()
 
