@@ -153,8 +153,6 @@ IT_MRC_CANDIDATES = [
 ]
 EXP_CANDIDATES = ["Contract Expiration", "Contract Expiry", "Expiration", "Renewal Date", "Contract End"]
 NEXT_REVIEW_CANDIDATES = ["Next Business Review", "Next Review", "Next QBR"]
-LAST_REVIEW_CANDIDATES = ["Last Business Review", "Last Review", "Last QBR"]
-QBR_CANDIDATES = ["QBR Generated", "QBR Date"]
 
 # =========================================================
 # HELPERS
@@ -222,7 +220,7 @@ def fmt_value(v) -> str:
 def format_contract_cell(val):
     if pd.isna(val) or val == "":
         return ""
-    if isinstance(val, str) and "month" in val.lower():
+    if isinstance(val, str) and "month" in str(val).lower():
         return "Month-to-Month"
     try:
         return pd.to_datetime(val).strftime("%b %d, %Y")
@@ -267,7 +265,99 @@ def load_workbook(path: str):
     return {sheet: normalize_df(pd.read_excel(path, sheet_name=sheet)) for sheet in xls.sheet_names}
 
 
-def get_related_rows(sheets: dict[str, pd.DataFrame], customer_code: str, customer_name: str) -> dict[str, pd.DataFrame]:
+def get_mrc_sheet(sheets: dict[str, pd.DataFrame]) -> tuple[str | None, pd.DataFrame]:
+    for sheet_name, df in sheets.items():
+        if sheet_name.strip().lower() == "mrc contracted rate":
+            return sheet_name, df
+    return None, pd.DataFrame()
+
+
+def get_customer_mrc_record(
+    sheets: dict[str, pd.DataFrame],
+    customer_code="",
+    customer_name=""
+) -> pd.DataFrame:
+    _, target_df = get_mrc_sheet(sheets)
+
+    if target_df.empty:
+        return pd.DataFrame()
+
+    mrc_code_col = find_col(target_df, CODE_CANDIDATES)
+    mrc_name_col = find_col(target_df, NAME_CANDIDATES)
+
+    match = pd.DataFrame()
+
+    if mrc_code_col and customer_code:
+        match = target_df[safe_str(target_df[mrc_code_col]) == str(customer_code).strip()]
+
+    if match.empty and mrc_name_col and customer_name:
+        match = target_df[
+            safe_str(target_df[mrc_name_col]).str.lower() == str(customer_name).strip().lower()
+        ]
+
+    return match
+
+
+def get_it_services_value_for_customer(
+    sheets: dict[str, pd.DataFrame],
+    customer_code="",
+    customer_name=""
+) -> float:
+    mrc_match = get_customer_mrc_record(
+        sheets=sheets,
+        customer_code=customer_code,
+        customer_name=customer_name
+    )
+
+    if mrc_match.empty:
+        return 0.0
+
+    mrc_it_col = find_col(mrc_match, IT_MRC_CANDIDATES)
+    if not mrc_it_col:
+        return 0.0
+
+    return float(to_numeric(pd.Series([mrc_match.iloc[0][mrc_it_col]])).fillna(0).iloc[0])
+
+
+def get_total_it_services_mrc_for_filtered(
+    sheets: dict[str, pd.DataFrame],
+    filtered_df: pd.DataFrame,
+    code_col: str | None,
+    name_col: str | None
+) -> float:
+    _, mrc_df = get_mrc_sheet(sheets)
+
+    if mrc_df.empty:
+        return 0.0
+
+    mrc_code_col = find_col(mrc_df, CODE_CANDIDATES)
+    mrc_name_col = find_col(mrc_df, NAME_CANDIDATES)
+    mrc_it_col = find_col(mrc_df, IT_MRC_CANDIDATES)
+
+    if not mrc_it_col:
+        return 0.0
+
+    matched_mrc = pd.DataFrame()
+
+    if code_col and mrc_code_col and code_col in filtered_df.columns:
+        visible_codes = set(safe_str(filtered_df[code_col]))
+        matched_mrc = mrc_df[safe_str(mrc_df[mrc_code_col]).isin(visible_codes)].copy()
+
+    if matched_mrc.empty and name_col and mrc_name_col and name_col in filtered_df.columns:
+        visible_names = set(safe_str(filtered_df[name_col]).str.lower())
+        matched_mrc = mrc_df[safe_str(mrc_df[mrc_name_col]).str.lower().isin(visible_names)].copy()
+
+    if matched_mrc.empty:
+        return 0.0
+
+    return float(to_numeric(matched_mrc[mrc_it_col]).fillna(0).sum())
+
+
+def get_related_rows(
+    sheets: dict[str, pd.DataFrame],
+    customer_code: str,
+    customer_name: str
+) -> dict[str, pd.DataFrame]:
     related = {}
 
     for sheet_name, df in sheets.items():
@@ -286,6 +376,29 @@ def get_related_rows(sheets: dict[str, pd.DataFrame], customer_code: str, custom
             related[sheet_name] = matches
 
     return related
+
+
+def add_it_services_to_display_df(
+    display_df: pd.DataFrame,
+    sheets: dict[str, pd.DataFrame],
+    code_col: str | None,
+    name_col: str | None
+) -> pd.DataFrame:
+    result_df = display_df.copy()
+    values = []
+
+    for _, row in result_df.iterrows():
+        code_val = row.get(code_col, "") if code_col else ""
+        name_val = row.get(name_col, "") if name_col else ""
+        it_val = get_it_services_value_for_customer(
+            sheets=sheets,
+            customer_code=code_val,
+            customer_name=name_val
+        )
+        values.append(it_val)
+
+    result_df["Current IT Services MRC"] = values
+    return result_df
 
 
 def filter_customer_df(df: pd.DataFrame, key_prefix: str = "main") -> pd.DataFrame:
@@ -345,79 +458,6 @@ def filter_customer_df(df: pd.DataFrame, key_prefix: str = "main") -> pd.DataFra
     return filtered_local
 
 
-def build_customer_master(customer_df: pd.DataFrame, mrc_df: pd.DataFrame) -> pd.DataFrame:
-    master_df = customer_df.copy()
-
-    if mrc_df.empty:
-        return master_df
-
-    customer_code_col = find_col(master_df, CODE_CANDIDATES)
-    customer_name_col = find_col(master_df, NAME_CANDIDATES)
-
-    mrc_code_col = find_col(mrc_df, CODE_CANDIDATES)
-    mrc_name_col = find_col(mrc_df, NAME_CANDIDATES)
-    mrc_exp_col = find_col(mrc_df, EXP_CANDIDATES)
-    mrc_mrr_col = find_col(mrc_df, MRR_CANDIDATES)
-    mrc_it_mrc_col = find_col(mrc_df, IT_MRC_CANDIDATES)
-
-    mrc_subset_cols = [c for c in [mrc_code_col, mrc_name_col, mrc_exp_col, mrc_mrr_col, mrc_it_mrc_col] if c]
-    if not mrc_subset_cols:
-        return master_df
-
-    mrc_merge_df = mrc_df[mrc_subset_cols].copy()
-
-    rename_map = {}
-    if mrc_exp_col:
-        rename_map[mrc_exp_col] = "Contract Expiration_MRC"
-    if mrc_mrr_col:
-        rename_map[mrc_mrr_col] = "MRR_MRC"
-    if mrc_it_mrc_col:
-        rename_map[mrc_it_mrc_col] = "Current IT Services MRC"
-
-    mrc_merge_df = mrc_merge_df.rename(columns=rename_map)
-
-    merged = False
-
-    if customer_code_col and mrc_code_col:
-        master_df[customer_code_col] = master_df[customer_code_col].astype(str).str.strip()
-        mrc_merge_df[mrc_code_col] = mrc_merge_df[mrc_code_col].astype(str).str.strip()
-        master_df = master_df.merge(mrc_merge_df, left_on=customer_code_col, right_on=mrc_code_col, how="left", suffixes=("", "_dup"))
-        merged = True
-
-    if not merged and customer_name_col and mrc_name_col:
-        master_df[customer_name_col] = master_df[customer_name_col].astype(str).str.strip()
-        mrc_merge_df[mrc_name_col] = mrc_merge_df[mrc_name_col].astype(str).str.strip()
-        master_df = master_df.merge(mrc_merge_df, left_on=customer_name_col, right_on=mrc_name_col, how="left", suffixes=("", "_dup"))
-        merged = True
-
-    # Fill from MRC sheet where missing in customer sheet
-    customer_exp_col = find_col(master_df, EXP_CANDIDATES)
-    customer_mrr_col = find_col(master_df, MRR_CANDIDATES)
-
-    if customer_exp_col and "Contract Expiration_MRC" in master_df.columns:
-        master_df[customer_exp_col] = master_df[customer_exp_col].where(
-            master_df[customer_exp_col].notna() & (master_df[customer_exp_col].astype(str).str.strip() != ""),
-            master_df["Contract Expiration_MRC"]
-        )
-    elif "Contract Expiration_MRC" in master_df.columns:
-        master_df = master_df.rename(columns={"Contract Expiration_MRC": "Contract Expiration"})
-
-    if customer_mrr_col and "MRR_MRC" in master_df.columns:
-        customer_num = to_numeric(master_df[customer_mrr_col])
-        mrc_num = to_numeric(master_df["MRR_MRC"])
-        use_mrc = customer_num.isna() | (customer_num == 0)
-        master_df[customer_mrr_col] = master_df[customer_mrr_col].where(~use_mrc, master_df["MRR_MRC"])
-    elif "MRR_MRC" in master_df.columns:
-        master_df = master_df.rename(columns={"MRR_MRC": "MRR"})
-
-    # Drop duplicate join columns if created
-    dup_cols = [c for c in master_df.columns if str(c).endswith("_dup")]
-    if dup_cols:
-        master_df = master_df.drop(columns=dup_cols)
-
-    return master_df
-
-
 # =========================================================
 # LOAD DATA
 # =========================================================
@@ -432,29 +472,14 @@ else:
 
 customer_df = sheets[customer_sheet_name]
 
-mrc_sheet_name = None
-for sheet_name in sheets.keys():
-    if sheet_name.strip().lower() == "mrc contracted rate":
-        mrc_sheet_name = sheet_name
-        break
-
-mrc_df = sheets[mrc_sheet_name] if mrc_sheet_name else pd.DataFrame()
-
-# Build one merged master dataframe
-master_df = build_customer_master(customer_df, mrc_df)
-
-# Master columns
-code_col = find_col(master_df, CODE_CANDIDATES)
-name_col = find_col(master_df, NAME_CANDIDATES)
-status_col = find_col(master_df, STATUS_CANDIDATES)
-am_col = find_col(master_df, AM_CANDIDATES)
-tier_col = find_col(master_df, TIER_CANDIDATES)
-mrr_col = find_col(master_df, MRR_CANDIDATES)
-it_mrc_col = find_col(master_df, IT_MRC_CANDIDATES)
-exp_col = find_col(master_df, EXP_CANDIDATES)
-next_review_col = find_col(master_df, NEXT_REVIEW_CANDIDATES)
-last_review_col = find_col(master_df, LAST_REVIEW_CANDIDATES)
-qbr_col = find_col(master_df, QBR_CANDIDATES)
+code_col = find_col(customer_df, CODE_CANDIDATES)
+name_col = find_col(customer_df, NAME_CANDIDATES)
+status_col = find_col(customer_df, STATUS_CANDIDATES)
+am_col = find_col(customer_df, AM_CANDIDATES)
+tier_col = find_col(customer_df, TIER_CANDIDATES)
+mrr_col = find_col(customer_df, MRR_CANDIDATES)
+exp_col = find_col(customer_df, EXP_CANDIDATES)
+next_review_col = find_col(customer_df, NEXT_REVIEW_CANDIDATES)
 
 # =========================================================
 # HEADER
@@ -474,11 +499,16 @@ tabs = st.tabs(["Dashboard", "Customer Discovery"])
 # DASHBOARD TAB
 # =========================================================
 with tabs[0]:
-    filtered = filter_customer_df(master_df, key_prefix="dashboard")
+    filtered = filter_customer_df(customer_df, key_prefix="dashboard")
 
     total_customers = filtered[code_col].nunique() if code_col else len(filtered)
     total_mrr = to_numeric(filtered[mrr_col]).fillna(0).sum() if mrr_col else 0
-    total_it_mrc = to_numeric(filtered[it_mrc_col]).fillna(0).sum() if it_mrc_col else 0
+    total_it_mrc = get_total_it_services_mrc_for_filtered(
+        sheets=sheets,
+        filtered_df=filtered,
+        code_col=code_col,
+        name_col=name_col
+    )
 
     expiring_90 = 0
     if exp_col:
@@ -595,9 +625,16 @@ with tabs[0]:
 
     section_open("Customer Table", "Filtered master customer view")
 
-    preferred_cols = [code_col, name_col, tier_col, status_col, am_col, exp_col, mrr_col, it_mrc_col]
+    preferred_cols = [code_col, name_col, tier_col, status_col, am_col, exp_col, mrr_col]
     preferred_cols = [c for c in preferred_cols if c]
     display_df = filtered[preferred_cols].copy() if preferred_cols else filtered.copy()
+
+    display_df = add_it_services_to_display_df(
+        display_df=display_df,
+        sheets=sheets,
+        code_col=code_col,
+        name_col=name_col
+    )
 
     if exp_col and exp_col in display_df.columns:
         display_df[exp_col] = display_df[exp_col].apply(format_contract_cell)
@@ -605,8 +642,8 @@ with tabs[0]:
     if mrr_col and mrr_col in display_df.columns:
         display_df[mrr_col] = display_df[mrr_col].apply(format_currency_cell)
 
-    if it_mrc_col and it_mrc_col in display_df.columns:
-        display_df[it_mrc_col] = display_df[it_mrc_col].apply(format_currency_cell)
+    if "Current IT Services MRC" in display_df.columns:
+        display_df["Current IT Services MRC"] = display_df["Current IT Services MRC"].apply(format_currency_cell)
 
     st.dataframe(display_df, use_container_width=True, hide_index=True)
     section_close()
@@ -624,7 +661,7 @@ with tabs[1]:
 
     with d1:
         if code_col:
-            code_options = sorted(master_df[code_col].dropna().astype(str).unique().tolist())
+            code_options = sorted(customer_df[code_col].dropna().astype(str).unique().tolist())
             selected_code = st.selectbox(
                 "Select customer code",
                 [""] + code_options,
@@ -633,7 +670,7 @@ with tabs[1]:
 
     with d2:
         if name_col:
-            name_options = sorted(master_df[name_col].dropna().astype(str).unique().tolist())
+            name_options = sorted(customer_df[name_col].dropna().astype(str).unique().tolist())
             selected_name = st.selectbox(
                 "Or select customer name",
                 [""] + name_options,
@@ -641,16 +678,23 @@ with tabs[1]:
             )
 
             if selected_name and code_col:
-                match = master_df[safe_str(master_df[name_col]) == selected_name]
+                match = customer_df[safe_str(customer_df[name_col]) == selected_name]
                 if not match.empty:
                     selected_code = str(match.iloc[0][code_col]).strip()
 
     if selected_code and code_col:
-        main_row = master_df[safe_str(master_df[code_col]) == selected_code]
+        main_row = customer_df[safe_str(customer_df[code_col]) == selected_code]
 
         if not main_row.empty:
             record = main_row.iloc[0]
-            selected_name_value = record.get(name_col, "") if name_col else ""
+            selected_customer_code = record.get(code_col, "") if code_col else ""
+            selected_customer_name = record.get(name_col, "") if name_col else ""
+
+            it_services_value = get_it_services_value_for_customer(
+                sheets=sheets,
+                customer_code=selected_customer_code,
+                customer_name=selected_customer_name
+            )
 
             r1, r2, r3 = st.columns(3, gap="medium")
 
@@ -674,12 +718,11 @@ with tabs[1]:
                 card("Contract Expiration", fmt_value(record.get(exp_col, "")))
 
             with r7:
-                value = to_numeric(pd.Series([record.get(mrr_col, None)])).iloc[0] if mrr_col else 0
+                value = to_numeric(pd.Series([record.get(mrr_col, None)])).fillna(0).iloc[0] if mrr_col else 0
                 card("MRR", fmt_currency(value))
 
             with r8:
-                value = to_numeric(pd.Series([record.get(it_mrc_col, None)])).iloc[0] if it_mrc_col else 0
-                card("IT Services MRC", fmt_currency(value))
+                card("IT Services MRC", fmt_currency(it_services_value))
 
             st.markdown("#### Full Customer Status Record")
             main_row_display = main_row.copy()
@@ -690,15 +733,12 @@ with tabs[1]:
             if mrr_col and mrr_col in main_row_display.columns:
                 main_row_display[mrr_col] = main_row_display[mrr_col].apply(format_currency_cell)
 
-            if it_mrc_col and it_mrc_col in main_row_display.columns:
-                main_row_display[it_mrc_col] = main_row_display[it_mrc_col].apply(format_currency_cell)
-
             st.dataframe(main_row_display, use_container_width=True, hide_index=True)
 
             related = get_related_rows(
                 sheets=sheets,
-                customer_code=selected_code,
-                customer_name=selected_name_value
+                customer_code=selected_customer_code,
+                customer_name=selected_customer_name
             )
             st.markdown("#### Related Records Across Sheets")
 
