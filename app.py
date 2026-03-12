@@ -156,10 +156,6 @@ NEXT_REVIEW_CANDIDATES = ["Next Business Review", "Next Review", "Next QBR"]
 LAST_REVIEW_CANDIDATES = ["Last Business Review", "Last Review", "Last QBR"]
 QBR_CANDIDATES = ["QBR Generated", "QBR Date"]
 
-# DEBUG (temporary)
-st.write("Columns detected:", customer_df.columns.tolist())
-st.write("Detected IT MRC column:", it_mrc_col)
-
 
 # =========================================================
 # HELPERS
@@ -366,6 +362,10 @@ exp_col = find_col(customer_df, EXP_CANDIDATES)
 next_review_col = find_col(customer_df, NEXT_REVIEW_CANDIDATES)
 last_review_col = find_col(customer_df, LAST_REVIEW_CANDIDATES)
 qbr_col = find_col(customer_df, QBR_CANDIDATES)
+
+# DEBUG (temporary)
+st.write("Columns detected:", customer_df.columns.tolist())
+st.write("Detected IT MRC column:", it_mrc_col)
 
 # =========================================================
 # HEADER
