@@ -487,7 +487,8 @@ def filter_customer_df(df: pd.DataFrame, key_prefix: str = "main") -> pd.DataFra
     with c4:
         tier_sel = []
         if tier_col_local:
-            opts = sorted([x for x in safe_str(df[tier_col_local]).unique() if x])
+            raw_opts = [x for x in safe_str(df[tier_col_local]).unique() if x]
+            opts = sorted(raw_opts, key=lambda t: (int(x) if (x := ''.join(filter(str.isdigit, t))) else 999, t))
             tier_sel = st.multiselect("Tier / Category", opts, key=f"{key_prefix}_tier")
 
     filtered_local = df.copy()
@@ -600,7 +601,11 @@ with tabs[0]:
                 .reset_index()
             )
             tier_counts.columns = ["Tier", "Count"]
-            fig = px.pie(tier_counts, names="Tier", values="Count", hole=0.6)
+            # Sort Tier 1 → Tier 2 → Tier 3
+            tier_counts["_sort"] = tier_counts["Tier"].str.extract(r"(\d+)").astype(float)
+            tier_counts = tier_counts.sort_values("_sort").drop(columns=["_sort"])
+            fig = px.pie(tier_counts, names="Tier", values="Count", hole=0.6,
+                         category_orders={"Tier": tier_counts["Tier"].tolist()})
             fig.update_layout(
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
