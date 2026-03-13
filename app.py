@@ -148,6 +148,7 @@ CHECKIN_CANDIDATES     = ["Pre/Check-in meetings?", "Pre/Check-in meetings", "Pr
 SMARTSHEET_CANDIDATES  = ["Smartsheet", "Smart Sheet", "SmartSheet Link", "Smartsheet Link"]
 BOOLEAN_CANDIDATES     = CHECKIN_CANDIDATES + ["Signed off by C/U", "Signed off by C U", "Signed off", "Sign off"]
 QBR_GEN_CANDIDATES     = ["QBR vCIO Generated", "QBR Generated", "QBR vCIO", "QBR Date"]
+LAST_BR_CANDIDATES     = ["Last BR", "Last Business Review", "Last QBR", "Last Review", "LastBR"]
 
 # =========================================================
 # HELPERS
@@ -1564,8 +1565,8 @@ with tabs[2]:
     </style>
     """, unsafe_allow_html=True)
 
-    # ── Resolve QBR column ──────────────────────────────────
-    qbr_col = find_col(customer_df, QBR_GEN_CANDIDATES)
+    # ── Resolve QBR column — use Last BR as the completion indicator ──
+    qbr_col = find_col(customer_df, LAST_BR_CANDIDATES)
 
     # ── Filters ─────────────────────────────────────────────
     f1, f2, f3 = st.columns([1, 1, 2])
