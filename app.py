@@ -1039,41 +1039,37 @@ with tabs[1]:
                             break
                     extra_rows.append((icon, col, val))
 
-                st.markdown('<div class="section-panel">', unsafe_allow_html=True)
-                st.markdown('<div class="section-panel-title">Customer Details</div>', unsafe_allow_html=True)
+                # Build all detail rows as one HTML string, render only if non-empty
+                rows_html = ""
 
-                # Status row
                 if cust_status:
-                    st.markdown(f"""
+                    rows_html += f"""
                     <div class="info-row">
                         <div class="info-row-icon">🔵</div>
                         <div class="info-row-label">Status</div>
                         <div class="info-row-value">{cust_status}</div>
-                    </div>""", unsafe_allow_html=True)
+                    </div>"""
 
-                # Pre/Check-in meetings row
                 if checkin_col:
                     checkin_val = record.get(checkin_col, None)
                     if not (pd.isna(checkin_val) if not isinstance(checkin_val, str) else False):
-                        st.markdown(f"""
+                        rows_html += f"""
                         <div class="info-row">
                             <div class="info-row-icon">📋</div>
                             <div class="info-row-label">Pre/Check-in Meeting</div>
                             <div class="info-row-value">{bool_badge(checkin_val)}</div>
-                        </div>""", unsafe_allow_html=True)
+                        </div>"""
 
-                # Signed off by C/U row
                 if signoff_col:
                     signoff_val = record.get(signoff_col, None)
                     if not (pd.isna(signoff_val) if not isinstance(signoff_val, str) else False):
-                        st.markdown(f"""
+                        rows_html += f"""
                         <div class="info-row">
                             <div class="info-row-icon">✅</div>
                             <div class="info-row-label">Signed off by C/U</div>
                             <div class="info-row-value">{bool_badge(signoff_val)}</div>
-                        </div>""", unsafe_allow_html=True)
+                        </div>"""
 
-                # QBR vCIO Generated row
                 if qbr_gen_col:
                     qbr_val = record.get(qbr_gen_col, None)
                     qbr_is_blank = pd.isna(qbr_val) if not isinstance(qbr_val, str) else str(qbr_val).strip() in ("", "nan", "NaT")
@@ -1084,34 +1080,37 @@ with tabs[1]:
                             qbr_display = f'<span style="background:rgba(63,185,80,0.15);border:1px solid rgba(63,185,80,0.4);color:#3fb950;font-size:0.8rem;font-weight:700;padding:3px 12px;border-radius:20px;">📅 {pd.to_datetime(qbr_val).strftime("%b %d, %Y")}</span>'
                         except Exception:
                             qbr_display = f'<span style="color:#c9d8ec;">{str(qbr_val).strip()}</span>'
-                    st.markdown(f"""
+                    rows_html += f"""
                     <div class="info-row">
                         <div class="info-row-icon">📑</div>
                         <div class="info-row-label">QBR vCIO Generated</div>
                         <div class="info-row-value">{qbr_display}</div>
-                    </div>""", unsafe_allow_html=True)
+                    </div>"""
 
-                # Smartsheet row
                 if smartsheet_col:
                     ss_val = record.get(smartsheet_col, None)
                     if not (pd.isna(ss_val) if not isinstance(ss_val, str) else False):
-                        st.markdown(f"""
+                        rows_html += f"""
                         <div class="info-row">
                             <div class="info-row-icon">📊</div>
                             <div class="info-row-label">Smartsheet</div>
                             <div class="info-row-value">{link_badge(ss_val)}</div>
-                        </div>""", unsafe_allow_html=True)
+                        </div>"""
 
-                # Remaining regular rows
                 for icon, label, val in extra_rows:
-                    st.markdown(f"""
+                    rows_html += f"""
                     <div class="info-row">
                         <div class="info-row-icon">{icon}</div>
                         <div class="info-row-label">{label}</div>
                         <div class="info-row-value">{val}</div>
-                    </div>""", unsafe_allow_html=True)
+                    </div>"""
 
-                st.markdown('</div>', unsafe_allow_html=True)
+                if rows_html.strip():
+                    st.markdown(f"""
+                    <div class="section-panel">
+                        <div class="section-panel-title">Customer Details</div>
+                        {rows_html}
+                    </div>""", unsafe_allow_html=True)
 
             with right_col:
                 # Related records across sheets
