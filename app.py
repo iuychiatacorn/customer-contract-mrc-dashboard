@@ -944,7 +944,7 @@ with tabs[0]:
                             lambda v: f"${v:,.2f}" if pd.notna(v) else "—"
                         )
 
-                st.dataframe(mrc_display, use_container_width=True, hide_index=True)
+                st.dataframe(mrc_display.drop(columns=["Customer Code"], errors="ignore"), use_container_width=True, hide_index=True)
             else:
                 st.info("Could not detect required columns in MRC sheet.")
 
