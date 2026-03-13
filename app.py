@@ -700,33 +700,11 @@ next_review_col = find_col(customer_df, NEXT_REVIEW_CANDIDATES)
 # HEADER
 # =========================================================
 st.markdown('<div class="dashboard-title">Customer Tracking Dashboard</div>', unsafe_allow_html=True)
-
-hdr_left, hdr_right = st.columns([6, 1])
-with hdr_left:
-    st.markdown(
-        f'<div class="dashboard-subtitle">Workbook source: <strong>{customer_sheet_name}</strong> &nbsp;|&nbsp; '
-        f'MRC sheet: <strong>{get_mrc_sheet(sheets)[0] or "not found"}</strong></div>',
-        unsafe_allow_html=True
-    )
-with hdr_right:
-    st.markdown('<style>div[data-testid="stButton"] button { font-size:1.1rem; padding:4px 10px; background:transparent; border:1px solid #1e3a5f; border-radius:10px; color:#58a6ff; } div[data-testid="stButton"] button:hover { background:#1e3a5f; }</style>', unsafe_allow_html=True)
-    r1, r2 = st.columns(2)
-    with r1:
-        if st.button("🔄", help="Refresh data from GitHub", key="global_refresh"):
-            saved_code = st.session_state.get("drilldown_code", "")
-            st.cache_data.clear()
-            if saved_code:
-                st.session_state["drilldown_code"] = saved_code
-            st.rerun()
-    with r2:
-        current_code = st.session_state.get("drilldown_code", "")
-        if current_code:
-            edit_key_hdr = f"edit_{current_code}"
-            if st.button("✏️", help="Edit this customer", key="top_edit_btn"):
-                if edit_key_hdr not in st.session_state:
-                    st.session_state[edit_key_hdr] = False
-                st.session_state[edit_key_hdr] = not st.session_state.get(edit_key_hdr, False)
-                st.rerun()
+st.markdown(
+    f'<div class="dashboard-subtitle">Workbook source: <strong>{customer_sheet_name}</strong> &nbsp;|&nbsp; '
+    f'MRC sheet: <strong>{get_mrc_sheet(sheets)[0] or "not found"}</strong></div>',
+    unsafe_allow_html=True
+)
 
 # =========================================================
 # PROFILE HELPER RENDERERS
@@ -1049,19 +1027,61 @@ with tabs[1]:
     </style>
     """, unsafe_allow_html=True)
 
-    # ── Selectors ───────────────────────────────────────────
+    # ── Selectors + actions on one row ──────────────────────
     if "drilldown_code" not in st.session_state:
         st.session_state["drilldown_code"] = ""
 
-    if code_col:
-        code_options = sorted(customer_df[code_col].dropna().astype(str).unique().tolist())
-        selected_code = st.selectbox(
-            "Search by Customer Code",
-            [""] + code_options,
-            key="drilldown_code"
-        )
-    else:
-        selected_code = ""
+    st.markdown("""
+    <style>
+    /* Tighten the two icon buttons */
+    [data-testid="stHorizontalBlock"] [data-testid="stButton"] button {
+        font-size: 1.05rem;
+        padding: 6px 10px;
+        background: transparent;
+        border: 1px solid #1e3a5f;
+        border-radius: 10px;
+        color: #58a6ff;
+        width: 100%;
+    }
+    [data-testid="stHorizontalBlock"] [data-testid="stButton"] button:hover {
+        background: #1e3a5f;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    sel_col, edit_col, refresh_col = st.columns([8, 0.6, 0.6])
+
+    with sel_col:
+        if code_col:
+            code_options = sorted(customer_df[code_col].dropna().astype(str).unique().tolist())
+            selected_code = st.selectbox(
+                "Search by Customer Code",
+                [""] + code_options,
+                key="drilldown_code"
+            )
+        else:
+            selected_code = ""
+
+    current_code = st.session_state.get("drilldown_code", "")
+
+    with edit_col:
+        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+        if current_code:
+            edit_key_row = f"edit_{current_code}"
+            if st.button("✏️", help="Edit this customer", key="row_edit_btn"):
+                if edit_key_row not in st.session_state:
+                    st.session_state[edit_key_row] = False
+                st.session_state[edit_key_row] = not st.session_state.get(edit_key_row, False)
+                st.rerun()
+
+    with refresh_col:
+        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+        if st.button("🔄", help="Refresh data from GitHub", key="row_refresh_btn"):
+            saved_code = st.session_state.get("drilldown_code", "")
+            st.cache_data.clear()
+            if saved_code:
+                st.session_state["drilldown_code"] = saved_code
+            st.rerun()
 
     # ── Profile ─────────────────────────────────────────────
     if not selected_code or not code_col:
