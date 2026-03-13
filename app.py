@@ -266,7 +266,7 @@ def detect_header_row(path: str, sheet: str, max_scan: int = 10) -> int:
     best_row = 0
     best_score = -1
     for i, row in raw.iterrows():
-        score = int(row.dropna().apply(lambda v: isinstance(v, str)).sum())
+        score = int(sum(isinstance(v, str) for v in row.dropna()))
         if score > best_score:
             best_score = score
             best_row = i
