@@ -930,11 +930,12 @@ with tabs[1]:
         border-radius: 18px;
         background: linear-gradient(135deg, #1c4f8a, #2d7dd2);
         display: flex; align-items: center; justify-content: center;
-        font-size: 2rem; font-weight: 800;
+        font-size: 1rem;
+        font-weight: 800;
         color: #fff;
         margin-bottom: 16px;
         box-shadow: 0 8px 24px rgba(45,125,210,0.35);
-        letter-spacing: -1px;
+        letter-spacing: 0px;
     }
     .profile-name {
         font-size: 1.75rem;
@@ -1145,8 +1146,8 @@ with tabs[1]:
             cust_exp    = record.get(exp_col, None) if exp_col else None
             it_mrc      = get_it_services_value_for_customer(sheets=sheets, customer_code=cust_code, customer_name=cust_name)
 
-            # Avatar initials
-            initials = "".join(w[0].upper() for w in cust_name.split()[:2]) if cust_name else "??"
+            # Avatar — use customer code
+            initials = cust_code if cust_code else "??"
 
             # Tier badge class
             tier_num = ''.join(filter(str.isdigit, cust_tier))
