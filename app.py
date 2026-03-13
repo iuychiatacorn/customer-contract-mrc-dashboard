@@ -710,7 +710,7 @@ def get_logo_base64() -> str:
         "Accept": "application/vnd.github.v3+json",
     }
     # Try common logo locations
-    for logo_path in ["Logo.png", "logo.png", "assets/Logo.png", "assets/logo.png"]:
+    for logo_path in ["md-logo.png", "md-logo.png", "assets/md-Logo.png", "assets/md-logo.png"]:
         url = f"https://api.github.com/repos/{repo}/contents/{logo_path}"
         r = requests.get(url, headers=headers)
         if r.status_code == 200:
