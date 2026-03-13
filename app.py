@@ -1041,13 +1041,32 @@ with tabs[1]:
                             break
                     extra_rows.append((icon, col, val))
 
-                # Determine if there's any content to show
-                has_content = bool(
-                    cust_status or checkin_col or signoff_col or qbr_gen_col or smartsheet_col or extra_rows
-                )
-
                 if has_content:
-                    st.markdown('<div class="section-panel"><div class="section-panel-title">Customer Details</div>', unsafe_allow_html=True)
+                    # Open panel with a unique marker div Streamlit won't collapse
+                    st.markdown("""
+                    <style>
+                    .detail-panel {
+                        background: #0d1f38;
+                        border: 1px solid #1e3a5f;
+                        border-radius: 18px;
+                        padding: 24px 28px 8px 28px;
+                        margin-bottom: 20px;
+                    }
+                    .detail-panel-title {
+                        font-size: 0.7rem;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                        letter-spacing: 2px;
+                        color: #3d6494;
+                        padding-bottom: 12px;
+                        border-bottom: 1px solid #1a3457;
+                        margin-bottom: 4px;
+                    }
+                    </style>
+                    <div class="detail-panel">
+                        <div class="detail-panel-title">Customer Details</div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
                     def info_row(icon, label, value_html):
                         st.markdown(f"""<div class="info-row">
@@ -1088,8 +1107,6 @@ with tabs[1]:
 
                     for icon, label, val in extra_rows:
                         info_row(icon, label, val)
-
-                    st.markdown('</div>', unsafe_allow_html=True)
 
             with right_col:
                 # Related records across sheets
