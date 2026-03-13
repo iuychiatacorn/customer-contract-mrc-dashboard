@@ -1060,9 +1060,15 @@ with tabs[1]:
     with sel_col:
         if code_col:
             code_options = sorted(customer_df[code_col].dropna().astype(str).unique().tolist())
+            # Restore previously selected code after save/refresh
+            persist = st.session_state.pop("_persist_code", None)
+            default_idx = 0
+            if persist and persist in code_options:
+                default_idx = code_options.index(persist) + 1  # +1 because [""] is prepended
             selected_code = st.selectbox(
                 "Search by Customer Code",
                 [""] + code_options,
+                index=default_idx,
                 key="drilldown_code"
             )
         else:
@@ -1083,10 +1089,7 @@ with tabs[1]:
     with refresh_col:
         st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
         if st.button("🔄", help="Refresh data from GitHub", key="row_refresh_btn"):
-            saved_code = st.session_state.get("drilldown_code", "")
             st.cache_data.clear()
-            if saved_code:
-                st.session_state["drilldown_code"] = saved_code
             st.rerun()
 
     # ── Profile ─────────────────────────────────────────────
@@ -1395,12 +1398,12 @@ with tabs[1]:
                         st.success(msg)
                         st.cache_data.clear()
                         st.session_state[edit_key] = False
-                        st.session_state["drilldown_code"] = cust_code
+                        st.session_state["_persist_code"] = cust_code
                         st.rerun()
                     else:
                         st.error(msg)
 
                 if cancelled:
                     st.session_state[edit_key] = False
-                    st.session_state["drilldown_code"] = cust_code
+                    st.session_state["_persist_code"] = cust_code
                     st.rerun()
