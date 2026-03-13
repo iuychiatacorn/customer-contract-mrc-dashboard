@@ -701,7 +701,7 @@ next_review_col = find_col(customer_df, NEXT_REVIEW_CANDIDATES)
 # =========================================================
 st.markdown('<div class="dashboard-title">Customer Tracking Dashboard</div>', unsafe_allow_html=True)
 
-hdr_left, hdr_right = st.columns([5, 1])
+hdr_left, hdr_right = st.columns([6, 1])
 with hdr_left:
     st.markdown(
         f'<div class="dashboard-subtitle">Workbook source: <strong>{customer_sheet_name}</strong> &nbsp;|&nbsp; '
@@ -709,8 +709,13 @@ with hdr_left:
         unsafe_allow_html=True
     )
 with hdr_right:
-    if st.button("🔄 Refresh Data", use_container_width=True):
+    st.markdown('<style>div[data-testid="stButton"] button { font-size:1.3rem; padding:4px 10px; background:transparent; border:1px solid #1e3a5f; border-radius:10px; color:#58a6ff; } div[data-testid="stButton"] button:hover { background:#1e3a5f; }</style>', unsafe_allow_html=True)
+    if st.button("🔄", help="Refresh data from GitHub", key="global_refresh"):
+        # Preserve current customer selection across refresh
+        saved_code = st.session_state.get("drilldown_code", "")
         st.cache_data.clear()
+        if saved_code:
+            st.session_state["drilldown_code"] = saved_code
         st.rerun()
 
 # =========================================================
@@ -1035,11 +1040,31 @@ with tabs[1]:
     """, unsafe_allow_html=True)
 
     # ── Selectors ───────────────────────────────────────────
-    selected_code = ""
+    # Persist selected code across refreshes
+    if "drilldown_code" not in st.session_state:
+        st.session_state["drilldown_code"] = ""
 
-    if code_col:
-        code_options = sorted(customer_df[code_col].dropna().astype(str).unique().tolist())
-        selected_code = st.selectbox("Search by Customer Code", [""] + code_options, key="drilldown_code")
+    sel_col, edit_col = st.columns([5, 1])
+    with sel_col:
+        if code_col:
+            code_options = sorted(customer_df[code_col].dropna().astype(str).unique().tolist())
+            selected_code = st.selectbox(
+                "Search by Customer Code",
+                [""] + code_options,
+                key="drilldown_code"
+            )
+        else:
+            selected_code = ""
+
+    with edit_col:
+        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+        edit_key = f"edit_{st.session_state.get('drilldown_code','')}"
+        if st.session_state.get('drilldown_code', ''):
+            if st.button("✏️", help="Edit this customer", key="top_edit_btn"):
+                if edit_key not in st.session_state:
+                    st.session_state[edit_key] = False
+                st.session_state[edit_key] = not st.session_state.get(edit_key, False)
+                st.rerun()
 
     # ── Profile ─────────────────────────────────────────────
     if not selected_code or not code_col:
@@ -1258,30 +1283,19 @@ with tabs[1]:
 
             # ── Edit Form ──────────────────────────────────────────
             st.markdown("---")
-            st.markdown('<p style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#3d6494;margin-bottom:16px;">✏️ Edit Customer Record</p>', unsafe_allow_html=True)
 
             # Columns that are editable
-            SKIP_EDIT = {code_col, name_col}   # never edit the key identifiers
+            SKIP_EDIT = {code_col, name_col}
             EXCLUDE_EDIT = {c for c in customer_df.columns if any(
                 kw in c.lower() for kw in ["seat", "seats", "license", "qty", "quantity"]
             )}
-
-            # Separate the special fields and general detail fields
-            editable_cols = []
-            for col in customer_df.columns:
-                if col in SKIP_EDIT or col in EXCLUDE_EDIT:
-                    continue
-                editable_cols.append(col)
+            editable_cols = [col for col in customer_df.columns if col not in SKIP_EDIT and col not in EXCLUDE_EDIT]
 
             edit_key = f"edit_{cust_code}"
             if edit_key not in st.session_state:
                 st.session_state[edit_key] = False
 
-            if not st.session_state[edit_key]:
-                if st.button("✏️ Edit this customer", key=f"btn_edit_{cust_code}"):
-                    st.session_state[edit_key] = True
-                    st.rerun()
-            else:
+            if st.session_state[edit_key]:
                 with st.form(key=f"form_{cust_code}"):
                     st.markdown("**Make your changes below, then click Save.**")
 
@@ -1355,12 +1369,15 @@ with tabs[1]:
                             updated_fields=form_vals
                         )
                     if ok:
-                        st.success(msg + " Click **🔄 Refresh Data** at the top to see your changes.")
+                        st.success(msg)
                         st.cache_data.clear()
                         st.session_state[edit_key] = False
+                        st.session_state["drilldown_code"] = cust_code
+                        st.rerun()
                     else:
                         st.error(msg)
 
                 if cancelled:
                     st.session_state[edit_key] = False
+                    st.session_state["drilldown_code"] = cust_code
                     st.rerun()
