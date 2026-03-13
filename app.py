@@ -294,6 +294,107 @@ def load_workbook(path: str) -> dict[str, pd.DataFrame]:
 
 
 # =========================================================
+# GITHUB READ / WRITE
+# =========================================================
+def get_github_config():
+    """Pull GitHub config from Streamlit secrets."""
+    token   = st.secrets.get("GITHUB_TOKEN", "")
+    repo    = st.secrets.get("GITHUB_REPO", "")    # e.g. "myorg/myrepo"
+    gh_path = st.secrets.get("GITHUB_FILE_PATH", "") # e.g. "data/Customer Contract and MRC Tracking.xlsx"
+    return token, repo, gh_path
+
+
+def save_row_to_github(
+    sheet_name: str,
+    code_col: str,
+    customer_code: str,
+    updated_fields: dict
+) -> tuple[bool, str]:
+    """
+    Read the raw Excel from GitHub, patch the matching row, and push it back.
+    Returns (success: bool, message: str).
+    """
+    import requests, base64, io
+
+    token, repo, gh_path = get_github_config()
+    if not token or not repo or not gh_path:
+        return False, "GitHub credentials not configured in Streamlit secrets."
+
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3+json",
+    }
+    api_url = f"https://api.github.com/repos/{repo}/contents/{gh_path}"
+
+    # ── Fetch current file ──────────────────────────────────
+    r = requests.get(api_url, headers=headers)
+    if r.status_code != 200:
+        return False, f"GitHub fetch failed: {r.status_code} {r.text[:200]}"
+
+    file_info = r.json()
+    sha       = file_info["sha"]
+    raw_bytes = base64.b64decode(file_info["content"])
+
+    # ── Load all sheets preserving raw format ───────────────
+    xls      = pd.ExcelFile(io.BytesIO(raw_bytes))
+    all_dfs  = {}
+    header_rows = {}
+    for s in xls.sheet_names:
+        raw_s = pd.read_excel(io.BytesIO(raw_bytes), sheet_name=s, header=None, nrows=10)
+        best_row, best_score = 0, -1
+        for i, row in raw_s.iterrows():
+            score = int(sum(isinstance(v, str) for v in row.dropna()))
+            if score > best_score:
+                best_score, best_row = score, i
+        header_rows[s] = int(best_row)
+        all_dfs[s] = pd.read_excel(io.BytesIO(raw_bytes), sheet_name=s, header=int(best_row))
+
+    # ── Patch the target sheet ──────────────────────────────
+    target_df = all_dfs[sheet_name].copy()
+    # Normalize column names for matching
+    target_df.columns = [str(c).replace("\n"," ").replace("\r"," ").strip() for c in target_df.columns]
+
+    mask = target_df[code_col].astype(str).str.strip() == str(customer_code).strip()
+    if not mask.any():
+        return False, f"Customer code '{customer_code}' not found in sheet '{sheet_name}'."
+
+    idx = target_df[mask].index[0]
+    for col, val in updated_fields.items():
+        if col in target_df.columns:
+            target_df.at[idx, col] = val
+
+    all_dfs[sheet_name] = target_df
+
+    # ── Write back to Excel in memory ──────────────────────
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        for s, df in all_dfs.items():
+            hr = header_rows[s]
+            if hr > 0:
+                # Write blank rows to preserve the header offset
+                blank = pd.DataFrame([[""] * len(df.columns)] * hr)
+                blank.to_excel(writer, sheet_name=s, index=False, header=False)
+                df.to_excel(writer, sheet_name=s, index=False,
+                            startrow=hr, header=True)
+            else:
+                df.to_excel(writer, sheet_name=s, index=False)
+    output.seek(0)
+    new_content = base64.b64encode(output.read()).decode()
+
+    # ── Push to GitHub ──────────────────────────────────────
+    payload = {
+        "message": f"Dashboard edit: {customer_code} in {sheet_name}",
+        "content": new_content,
+        "sha":     sha,
+    }
+    r2 = requests.put(api_url, headers=headers, json=payload)
+    if r2.status_code in (200, 201):
+        return True, "✅ Changes saved to GitHub successfully."
+    else:
+        return False, f"GitHub push failed: {r2.status_code} {r2.text[:300]}"
+
+
+# =========================================================
 # MRC SHEET LOOKUP  (fuzzy name match — fixes cross-sheet bug)
 # =========================================================
 def get_mrc_sheet(sheets: dict[str, pd.DataFrame]) -> tuple[str | None, pd.DataFrame]:
@@ -1098,3 +1199,113 @@ with tabs[1]:
                             rel_display[rel_it_mrc_col] = rel_display[rel_it_mrc_col].apply(format_currency_cell)
                         with st.expander(f"📄 {sheet_name}  ({len(rel_display)} row(s))", expanded=True):
                             st.dataframe(rel_display, use_container_width=True, hide_index=True)
+
+            # ── Edit Form ──────────────────────────────────────────
+            st.markdown("---")
+            st.markdown('<p style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#3d6494;margin-bottom:16px;">✏️ Edit Customer Record</p>', unsafe_allow_html=True)
+
+            # Columns that are editable
+            SKIP_EDIT = {code_col, name_col}   # never edit the key identifiers
+            EXCLUDE_EDIT = {c for c in customer_df.columns if any(
+                kw in c.lower() for kw in ["seat", "seats", "license", "qty", "quantity"]
+            )}
+
+            # Separate the special fields and general detail fields
+            editable_cols = []
+            for col in customer_df.columns:
+                if col in SKIP_EDIT or col in EXCLUDE_EDIT:
+                    continue
+                editable_cols.append(col)
+
+            edit_key = f"edit_{cust_code}"
+            if edit_key not in st.session_state:
+                st.session_state[edit_key] = False
+
+            if not st.session_state[edit_key]:
+                if st.button("✏️ Edit this customer", key=f"btn_edit_{cust_code}"):
+                    st.session_state[edit_key] = True
+                    st.rerun()
+            else:
+                with st.form(key=f"form_{cust_code}"):
+                    st.markdown("**Make your changes below, then click Save.**")
+
+                    form_vals = {}
+                    # Group into columns for a cleaner layout
+                    col_a, col_b = st.columns(2)
+                    for i, col in enumerate(editable_cols):
+                        raw_val = record.get(col, None)
+                        widget_col = col_a if i % 2 == 0 else col_b
+
+                        with widget_col:
+                            col_lower = col.lower()
+
+                            # Account Manager → selectbox from existing AMs
+                            if col == am_col and am_col:
+                                am_options = sorted(customer_df[am_col].dropna().astype(str).unique().tolist())
+                                cur = str(raw_val).strip() if raw_val and not pd.isna(raw_val) else am_options[0]
+                                idx = am_options.index(cur) if cur in am_options else 0
+                                form_vals[col] = st.selectbox(col, am_options, index=idx, key=f"fe_{cust_code}_{col}")
+
+                            # Contract Expiration → date picker
+                            elif col == exp_col and exp_col:
+                                try:
+                                    cur_date = pd.to_datetime(raw_val).date()
+                                except Exception:
+                                    cur_date = pd.Timestamp.today().date()
+                                form_vals[col] = st.date_input(col, value=cur_date, key=f"fe_{cust_code}_{col}")
+
+                            # Boolean fields → checkbox
+                            elif col in (checkin_col, signoff_col) or any(
+                                kw in col_lower for kw in ["check", "signed", "complete", "submitted"]
+                            ):
+                                cur_bool = str(raw_val).strip().lower() in ("true", "yes", "1", "1.0")
+                                form_vals[col] = st.checkbox(col, value=cur_bool, key=f"fe_{cust_code}_{col}")
+
+                            # Tier → selectbox
+                            elif col == tier_col and tier_col:
+                                tier_options = sorted(
+                                    customer_df[tier_col].dropna().astype(str).unique().tolist(),
+                                    key=lambda t: (int(x) if (x := "".join(filter(str.isdigit, t))) else 999, t)
+                                )
+                                cur = str(raw_val).strip() if raw_val and not pd.isna(raw_val) else tier_options[0]
+                                idx = tier_options.index(cur) if cur in tier_options else 0
+                                form_vals[col] = st.selectbox(col, tier_options, index=idx, key=f"fe_{cust_code}_{col}")
+
+                            # Status → selectbox
+                            elif col == status_col and status_col:
+                                status_opts = sorted(customer_df[status_col].dropna().astype(str).unique().tolist())
+                                cur = str(raw_val).strip() if raw_val and not pd.isna(raw_val) else status_opts[0]
+                                idx = status_opts.index(cur) if cur in status_opts else 0
+                                form_vals[col] = st.selectbox(col, status_opts, index=idx, key=f"fe_{cust_code}_{col}")
+
+                            # Everything else → text input
+                            else:
+                                cur_str = "" if pd.isna(raw_val) else str(raw_val).strip()
+                                form_vals[col] = st.text_input(col, value=cur_str, key=f"fe_{cust_code}_{col}")
+
+                    st.markdown("")
+                    save_col, cancel_col, _ = st.columns([1, 1, 3])
+                    with save_col:
+                        submitted = st.form_submit_button("💾 Save Changes", type="primary")
+                    with cancel_col:
+                        cancelled = st.form_submit_button("✕ Cancel")
+
+                if submitted:
+                    with st.spinner("Saving to GitHub..."):
+                        ok, msg = save_row_to_github(
+                            sheet_name=customer_sheet_name,
+                            code_col=code_col,
+                            customer_code=cust_code,
+                            updated_fields=form_vals
+                        )
+                    if ok:
+                        st.success(msg)
+                        st.cache_data.clear()
+                        st.session_state[edit_key] = False
+                        st.rerun()
+                    else:
+                        st.error(msg)
+
+                if cancelled:
+                    st.session_state[edit_key] = False
+                    st.rerun()
