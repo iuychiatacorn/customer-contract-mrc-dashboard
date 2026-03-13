@@ -142,8 +142,10 @@ IT_MRC_CANDIDATES    = [
     "Current MRC",
     "MRC",
 ]
-EXP_CANDIDATES       = ["Contract Expiration", "Contract Expiry", "Expiration", "Renewal Date", "Contract End"]
+EXP_CANDIDATES         = ["Contract Expiration", "Contract Expiry", "Expiration", "Renewal Date", "Contract End"]
 NEXT_REVIEW_CANDIDATES = ["Next Business Review", "Next Review", "Next QBR"]
+CHECKIN_CANDIDATES     = ["Pre/Check-in meetings?", "Pre/Check-in meetings", "Pre Check-in meetings", "Check-in meetings", "Pre/Checkin"]
+SMARTSHEET_CANDIDATES  = ["Smartsheet", "Smart Sheet", "SmartSheet Link", "Smartsheet Link"]
 
 # =========================================================
 # HELPERS
@@ -971,9 +973,31 @@ with tabs[1]:
             left_col, right_col = st.columns([1, 1.6], gap="large")
 
             with left_col:
-                # Build info rows from all columns not already shown
-                shown_cols = {code_col, name_col, tier_col, am_col, mrr_col, exp_col, status_col}
-                extra_rows = []
+                # Identify special columns
+                checkin_col    = find_col(customer_df, CHECKIN_CANDIDATES)
+                smartsheet_col = find_col(customer_df, SMARTSHEET_CANDIDATES)
+                special_cols   = {checkin_col, smartsheet_col} - {None}
+
+                shown_cols = {code_col, name_col, tier_col, am_col, mrr_col, exp_col, status_col} | special_cols
+
+                # Helper: render TRUE/FALSE as styled badge
+                def bool_badge(val) -> str:
+                    s = str(val).strip().lower()
+                    if s in ("true", "yes", "1"):
+                        return '<span style="background:rgba(63,185,80,0.15);border:1px solid rgba(63,185,80,0.4);color:#3fb950;font-size:0.8rem;font-weight:700;padding:3px 12px;border-radius:20px;">✓ Yes</span>'
+                    elif s in ("false", "no", "0"):
+                        return '<span style="background:rgba(248,81,73,0.12);border:1px solid rgba(248,81,73,0.35);color:#f85149;font-size:0.8rem;font-weight:700;padding:3px 12px;border-radius:20px;">✗ No</span>'
+                    return f'<span style="color:#6b8aad;">{val}</span>'
+
+                # Helper: render a URL as a styled link button
+                def link_badge(url) -> str:
+                    s = str(url).strip()
+                    if s.lower().startswith("http"):
+                        return f'<a href="{s}" target="_blank" style="display:inline-block;background:rgba(56,139,253,0.12);border:1px solid rgba(56,139,253,0.35);color:#58a6ff;font-size:0.8rem;font-weight:600;padding:4px 14px;border-radius:20px;text-decoration:none;">🔗 Open Smartsheet</a>'
+                    # Not a URL yet — show placeholder
+                    return f'<span style="color:#4a6fa5;font-style:italic;font-size:0.85rem;">No link stored</span>'
+
+                # Build regular info rows
                 icon_map = {
                     "next": "📅", "review": "📅", "qbr": "📅",
                     "note": "📝", "address": "📍", "phone": "📞",
@@ -981,13 +1005,13 @@ with tabs[1]:
                     "proposed": "💡", "alignment": "🎯", "strategy": "🗺",
                     "budget": "📊", "mrc": "💲", "mrr": "💲",
                 }
+                extra_rows = []
                 for col in customer_df.columns:
                     if col in shown_cols:
                         continue
                     val = record.get(col, None)
                     if pd.isna(val) or str(val).strip() in ("", "nan", "NaT"):
                         continue
-                    # Format dates and currency
                     try:
                         val = pd.to_datetime(val).strftime("%b %d, %Y")
                     except Exception:
@@ -1006,7 +1030,7 @@ with tabs[1]:
                 st.markdown('<div class="section-panel">', unsafe_allow_html=True)
                 st.markdown('<div class="section-panel-title">Customer Details</div>', unsafe_allow_html=True)
 
-                # Always show status first
+                # Status row
                 if cust_status:
                     st.markdown(f"""
                     <div class="info-row">
@@ -1015,6 +1039,29 @@ with tabs[1]:
                         <div class="info-row-value">{cust_status}</div>
                     </div>""", unsafe_allow_html=True)
 
+                # Pre/Check-in meetings row
+                if checkin_col:
+                    checkin_val = record.get(checkin_col, None)
+                    if not (pd.isna(checkin_val) if not isinstance(checkin_val, str) else False):
+                        st.markdown(f"""
+                        <div class="info-row">
+                            <div class="info-row-icon">📋</div>
+                            <div class="info-row-label">Pre/Check-in Meeting</div>
+                            <div class="info-row-value">{bool_badge(checkin_val)}</div>
+                        </div>""", unsafe_allow_html=True)
+
+                # Smartsheet row
+                if smartsheet_col:
+                    ss_val = record.get(smartsheet_col, None)
+                    if not (pd.isna(ss_val) if not isinstance(ss_val, str) else False):
+                        st.markdown(f"""
+                        <div class="info-row">
+                            <div class="info-row-icon">📊</div>
+                            <div class="info-row-label">Smartsheet</div>
+                            <div class="info-row-value">{link_badge(ss_val)}</div>
+                        </div>""", unsafe_allow_html=True)
+
+                # Remaining regular rows
                 for icon, label, val in extra_rows:
                     st.markdown(f"""
                     <div class="info-row">
