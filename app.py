@@ -702,109 +702,350 @@ with tabs[0]:
 # CUSTOMER DISCOVERY TAB
 # =========================================================
 with tabs[1]:
-    st.subheader("Customer Discovery")
-    st.caption("Select a customer to see detail and related sheet records")
 
+    # ── Search bar ──────────────────────────────────────────
+    st.markdown("""
+    <style>
+    .profile-hero {
+        background: linear-gradient(135deg, #0d1f38 0%, #112240 60%, #0a1628 100%);
+        border: 1px solid #1e3a5f;
+        border-radius: 24px;
+        padding: 32px 36px;
+        margin-bottom: 24px;
+        position: relative;
+        overflow: hidden;
+    }
+    .profile-hero::before {
+        content: '';
+        position: absolute;
+        top: -60px; right: -60px;
+        width: 220px; height: 220px;
+        background: radial-gradient(circle, rgba(56,139,253,0.12) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+    .profile-avatar {
+        width: 72px; height: 72px;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #1c4f8a, #2d7dd2);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 2rem; font-weight: 800;
+        color: #fff;
+        margin-bottom: 16px;
+        box-shadow: 0 8px 24px rgba(45,125,210,0.35);
+        letter-spacing: -1px;
+    }
+    .profile-name {
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: #f0f6ff;
+        margin: 0 0 4px 0;
+        letter-spacing: -0.5px;
+    }
+    .profile-code-badge {
+        display: inline-block;
+        background: rgba(56,139,253,0.15);
+        border: 1px solid rgba(56,139,253,0.3);
+        color: #58a6ff;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        padding: 3px 10px;
+        border-radius: 20px;
+        margin-right: 8px;
+    }
+    .profile-tier-badge {
+        display: inline-block;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        padding: 3px 10px;
+        border-radius: 20px;
+    }
+    .tier-1 { background: rgba(255,215,0,0.12); border: 1px solid rgba(255,215,0,0.35); color: #ffd700; }
+    .tier-2 { background: rgba(192,192,192,0.12); border: 1px solid rgba(192,192,192,0.35); color: #c0c0c0; }
+    .tier-3 { background: rgba(205,127,50,0.12); border: 1px solid rgba(205,127,50,0.35); color: #cd7f32; }
+    .tier-other { background: rgba(100,160,255,0.12); border: 1px solid rgba(100,160,255,0.3); color: #64a0ff; }
+
+    .stat-block {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        padding: 20px 22px;
+        height: 100%;
+    }
+    .stat-block-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        color: #6b8aad;
+        margin-bottom: 8px;
+    }
+    .stat-block-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #e8f0fe;
+        line-height: 1.1;
+    }
+    .stat-block-sub {
+        font-size: 0.8rem;
+        color: #4a6fa5;
+        margin-top: 4px;
+    }
+    .stat-accent-green { color: #3fb950; }
+    .stat-accent-yellow { color: #e3b341; }
+    .stat-accent-blue { color: #58a6ff; }
+
+    .info-row {
+        display: flex;
+        align-items: center;
+        padding: 14px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-row-icon {
+        font-size: 1.1rem;
+        width: 32px;
+        flex-shrink: 0;
+    }
+    .info-row-label {
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #4a6fa5;
+        width: 160px;
+        flex-shrink: 0;
+    }
+    .info-row-value {
+        font-size: 0.95rem;
+        color: #c9d8ec;
+        font-weight: 500;
+    }
+    .section-panel {
+        background: #0d1f38;
+        border: 1px solid #1e3a5f;
+        border-radius: 18px;
+        padding: 24px 28px;
+        margin-bottom: 20px;
+    }
+    .section-panel-title {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: #3d6494;
+        margin-bottom: 18px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #1a3457;
+    }
+    .expiry-urgent { color: #f85149; font-weight: 700; }
+    .expiry-soon   { color: #e3b341; font-weight: 600; }
+    .expiry-ok     { color: #3fb950; }
+    .no-selection-state {
+        text-align: center;
+        padding: 80px 20px;
+        color: #2d4a6e;
+    }
+    .no-selection-state .big-icon { font-size: 4rem; margin-bottom: 16px; }
+    .no-selection-state h3 { color: #3d6494; font-size: 1.2rem; font-weight: 600; margin: 0; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ── Selectors ───────────────────────────────────────────
+    sel_c1, sel_c2 = st.columns(2)
     selected_code = ""
     selected_name = ""
 
-    d1, d2 = st.columns(2)
-
-    with d1:
+    with sel_c1:
         if code_col:
             code_options = sorted(customer_df[code_col].dropna().astype(str).unique().tolist())
-            selected_code = st.selectbox(
-                "Select customer code",
-                [""] + code_options,
-                key="drilldown_code"
-            )
+            selected_code = st.selectbox("Search by Customer Code", [""] + code_options, key="drilldown_code")
 
-    with d2:
+    with sel_c2:
         if name_col:
             name_options = sorted(customer_df[name_col].dropna().astype(str).unique().tolist())
-            selected_name = st.selectbox(
-                "Or select customer name",
-                [""] + name_options,
-                key="drilldown_name"
-            )
-            # Resolve code from name selection
+            selected_name = st.selectbox("Search by Customer Name", [""] + name_options, key="drilldown_name")
             if selected_name and code_col and not selected_code:
                 match = customer_df[safe_str(customer_df[name_col]) == selected_name]
                 if not match.empty:
                     selected_code = str(match.iloc[0][code_col]).strip()
 
-    if selected_code and code_col:
+    # ── Profile ─────────────────────────────────────────────
+    if not selected_code or not code_col:
+        st.markdown("""
+        <div class="no-selection-state">
+            <div class="big-icon">🔍</div>
+            <h3>Select a customer above to view their profile</h3>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
         main_row = customer_df[safe_str(customer_df[code_col]) == selected_code]
 
-        if not main_row.empty:
-            record = main_row.iloc[0]
-            selected_customer_code = str(record.get(code_col, "")).strip() if code_col else ""
-            selected_customer_name = str(record.get(name_col, "")).strip() if name_col else ""
-
-            it_services_value = get_it_services_value_for_customer(
-                sheets=sheets,
-                customer_code=selected_customer_code,
-                customer_name=selected_customer_name
-            )
-
-            r1, r2, r3 = st.columns(3, gap="medium")
-            with r1:
-                card("Customer Code", fmt_value(record.get(code_col, "")))
-            with r2:
-                card("Customer Name", fmt_value(record.get(name_col, "")))
-            with r3:
-                card("Tier / Category", fmt_value(record.get(tier_col, "")))
-
-            st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
-
-            r5, r6, r7, r8 = st.columns(4, gap="medium")
-            with r5:
-                card("Account Manager", fmt_value(record.get(am_col, "")))
-            with r6:
-                card("Contract Expiration", fmt_value(record.get(exp_col, "")))
-            with r7:
-                value = to_numeric(pd.Series([record.get(mrr_col, None)])).fillna(0).iloc[0] if mrr_col else 0
-                card("MRR", fmt_currency(value))
-            with r8:
-                card("IT Services MRC", fmt_currency(it_services_value))
-
-            st.markdown("#### Full Customer Status Record")
-            main_row_display = main_row.copy()
-            if exp_col and exp_col in main_row_display.columns:
-                main_row_display[exp_col] = main_row_display[exp_col].apply(format_contract_cell)
-            if mrr_col and mrr_col in main_row_display.columns:
-                main_row_display[mrr_col] = main_row_display[mrr_col].apply(format_currency_cell)
-            st.dataframe(main_row_display, use_container_width=True, hide_index=True)
-
-            # ---- Cross-sheet related records ----
-            related = get_related_rows(
-                sheets=sheets,
-                customer_code=selected_customer_code,
-                customer_name=selected_customer_name
-            )
-            st.markdown("#### Related Records Across Sheets")
-
-            if not related:
-                st.info("No related records found in other sheets for this customer.")
-            else:
-                for sheet_name, rel_df in related.items():
-                    rel_display = rel_df.copy()
-                    rel_exp_col    = find_col(rel_display, EXP_CANDIDATES)
-                    rel_mrr_col    = find_col(rel_display, MRR_CANDIDATES)
-                    rel_it_mrc_col = find_col(rel_display, IT_MRC_CANDIDATES)
-
-                    if rel_exp_col and rel_exp_col in rel_display.columns:
-                        rel_display[rel_exp_col] = rel_display[rel_exp_col].apply(format_contract_cell)
-                    if rel_mrr_col and rel_mrr_col in rel_display.columns:
-                        rel_display[rel_mrr_col] = rel_display[rel_mrr_col].apply(format_currency_cell)
-                    if rel_it_mrc_col and rel_it_mrc_col in rel_display.columns:
-                        rel_display[rel_it_mrc_col] = rel_display[rel_it_mrc_col].apply(format_currency_cell)
-
-                    if sheet_name == customer_sheet_name:
-                        st.markdown(f"### {sheet_name}")
-                        st.dataframe(rel_display, use_container_width=True, hide_index=True)
-                    else:
-                        with st.expander(f"{sheet_name} ({len(rel_display)} row(s))"):
-                            st.dataframe(rel_display, use_container_width=True, hide_index=True)
-        else:
+        if main_row.empty:
             st.warning(f"No record found for code: `{selected_code}`")
+        else:
+            record = main_row.iloc[0]
+            cust_code   = str(record.get(code_col, "")).strip() if code_col else ""
+            cust_name   = str(record.get(name_col, "")).strip() if name_col else ""
+            cust_tier   = str(record.get(tier_col, "")).strip() if tier_col else ""
+            cust_am     = str(record.get(am_col, "")).strip() if am_col else ""
+            cust_status = str(record.get(status_col, "")).strip() if status_col else ""
+            cust_mrr    = to_numeric(pd.Series([record.get(mrr_col, None)])).fillna(0).iloc[0] if mrr_col else 0
+            cust_exp    = record.get(exp_col, None) if exp_col else None
+            it_mrc      = get_it_services_value_for_customer(sheets=sheets, customer_code=cust_code, customer_name=cust_name)
+
+            # Avatar initials
+            initials = "".join(w[0].upper() for w in cust_name.split()[:2]) if cust_name else "??"
+
+            # Tier badge class
+            tier_num = ''.join(filter(str.isdigit, cust_tier))
+            tier_class = f"tier-{tier_num}" if tier_num in ["1","2","3"] else "tier-other"
+            tier_label = cust_tier if cust_tier else "—"
+
+            # Expiry color
+            exp_display = format_contract_cell(cust_exp)
+            exp_class = ""
+            if cust_exp and exp_display != "Month-to-Month":
+                try:
+                    days_left = (pd.to_datetime(cust_exp) - pd.Timestamp.today()).days
+                    if days_left < 0:
+                        exp_class = "expiry-urgent"
+                        exp_display = f"{exp_display} (Expired)"
+                    elif days_left <= 90:
+                        exp_class = "expiry-soon"
+                        exp_display = f"{exp_display} ({days_left}d left)"
+                    else:
+                        exp_class = "expiry-ok"
+                except Exception:
+                    pass
+
+            # ── Hero card ──────────────────────────────────
+            st.markdown(f"""
+            <div class="profile-hero">
+                <div class="profile-avatar">{initials}</div>
+                <div class="profile-name">{cust_name or cust_code}</div>
+                <div style="margin-top:10px;">
+                    <span class="profile-code-badge">{cust_code}</span>
+                    <span class="profile-tier-badge {tier_class}">{tier_label}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # ── KPI row ────────────────────────────────────
+            k1, k2, k3, k4 = st.columns(4)
+            with k1:
+                st.markdown(f"""
+                <div class="stat-block">
+                    <div class="stat-block-label">💰 Monthly Revenue</div>
+                    <div class="stat-block-value stat-accent-green">{fmt_currency(cust_mrr)}</div>
+                    <div class="stat-block-sub">MRR</div>
+                </div>""", unsafe_allow_html=True)
+            with k2:
+                st.markdown(f"""
+                <div class="stat-block">
+                    <div class="stat-block-label">🖥 IT Services MRC</div>
+                    <div class="stat-block-value stat-accent-blue">{fmt_currency(it_mrc)}</div>
+                    <div class="stat-block-sub">Contracted rate</div>
+                </div>""", unsafe_allow_html=True)
+            with k3:
+                st.markdown(f"""
+                <div class="stat-block">
+                    <div class="stat-block-label">📋 Contract Expiry</div>
+                    <div class="stat-block-value {exp_class}" style="font-size:1.1rem; padding-top:4px;">{exp_display or "—"}</div>
+                    <div class="stat-block-sub">Renewal date</div>
+                </div>""", unsafe_allow_html=True)
+            with k4:
+                st.markdown(f"""
+                <div class="stat-block">
+                    <div class="stat-block-label">👤 Account Manager</div>
+                    <div class="stat-block-value" style="font-size:1.05rem; padding-top:4px;">{cust_am or "—"}</div>
+                    <div class="stat-block-sub">Owner</div>
+                </div>""", unsafe_allow_html=True)
+
+            st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+            # ── Two-column detail + related ────────────────
+            left_col, right_col = st.columns([1, 1.6], gap="large")
+
+            with left_col:
+                # Build info rows from all columns not already shown
+                shown_cols = {code_col, name_col, tier_col, am_col, mrr_col, exp_col, status_col}
+                extra_rows = []
+                icon_map = {
+                    "next": "📅", "review": "📅", "qbr": "📅",
+                    "note": "📝", "address": "📍", "phone": "📞",
+                    "email": "✉️", "website": "🌐", "industry": "🏭",
+                    "proposed": "💡", "alignment": "🎯", "strategy": "🗺",
+                    "budget": "📊", "mrc": "💲", "mrr": "💲",
+                }
+                for col in customer_df.columns:
+                    if col in shown_cols:
+                        continue
+                    val = record.get(col, None)
+                    if pd.isna(val) or str(val).strip() in ("", "nan", "NaT"):
+                        continue
+                    # Format dates and currency
+                    try:
+                        val = pd.to_datetime(val).strftime("%b %d, %Y")
+                    except Exception:
+                        try:
+                            fval = float(str(val).replace("$","").replace(",",""))
+                            val = f"${fval:,.2f}"
+                        except Exception:
+                            val = str(val).strip()
+                    icon = "•"
+                    for kw, ic in icon_map.items():
+                        if kw in col.lower():
+                            icon = ic
+                            break
+                    extra_rows.append((icon, col, val))
+
+                st.markdown('<div class="section-panel">', unsafe_allow_html=True)
+                st.markdown('<div class="section-panel-title">Customer Details</div>', unsafe_allow_html=True)
+
+                # Always show status first
+                if cust_status:
+                    st.markdown(f"""
+                    <div class="info-row">
+                        <div class="info-row-icon">🔵</div>
+                        <div class="info-row-label">Status</div>
+                        <div class="info-row-value">{cust_status}</div>
+                    </div>""", unsafe_allow_html=True)
+
+                for icon, label, val in extra_rows:
+                    st.markdown(f"""
+                    <div class="info-row">
+                        <div class="info-row-icon">{icon}</div>
+                        <div class="info-row-label">{label}</div>
+                        <div class="info-row-value">{val}</div>
+                    </div>""", unsafe_allow_html=True)
+
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            with right_col:
+                # Related records across sheets
+                related = get_related_rows(sheets=sheets, customer_code=cust_code, customer_name=cust_name)
+
+                st.markdown('<div class="section-panel-title" style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#3d6494;margin-bottom:16px;">Records Across Sheets</div>', unsafe_allow_html=True)
+
+                if not related:
+                    st.info("No related records found in other sheets.")
+                else:
+                    for sheet_name, rel_df in related.items():
+                        if sheet_name == customer_sheet_name:
+                            continue   # already shown in hero/details
+                        rel_display = rel_df.copy()
+                        rel_exp_col    = find_col(rel_display, EXP_CANDIDATES)
+                        rel_mrr_col    = find_col(rel_display, MRR_CANDIDATES)
+                        rel_it_mrc_col = find_col(rel_display, IT_MRC_CANDIDATES)
+                        if rel_exp_col:
+                            rel_display[rel_exp_col] = rel_display[rel_exp_col].apply(format_contract_cell)
+                        if rel_mrr_col:
+                            rel_display[rel_mrr_col] = rel_display[rel_mrr_col].apply(format_currency_cell)
+                        if rel_it_mrc_col:
+                            rel_display[rel_it_mrc_col] = rel_display[rel_it_mrc_col].apply(format_currency_cell)
+                        with st.expander(f"📄 {sheet_name}  ({len(rel_display)} row(s))", expanded=True):
+                            st.dataframe(rel_display, use_container_width=True, hide_index=True)
