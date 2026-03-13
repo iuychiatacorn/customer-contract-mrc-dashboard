@@ -710,7 +710,7 @@ def get_logo_base64() -> str:
         "Accept": "application/vnd.github.v3+json",
     }
     # Try common logo locations
-    for logo_path in ["md-logo.png", "md-logo.png", "assets/md-Logo.png", "assets/md-logo.png"]:
+    for logo_path in ["Logo.png", "logo.png", "assets/Logo.png", "assets/logo.png"]:
         url = f"https://api.github.com/repos/{repo}/contents/{logo_path}"
         r = requests.get(url, headers=headers)
         if r.status_code == 200:
@@ -722,7 +722,7 @@ logo_b64 = get_logo_base64()
 if logo_b64:
     st.markdown(f"""
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:4px;">
-        <img src="data:image/png;base64,{logo_b64}" style="height:80px;width:auto;object-fit:contain;" />
+        <img src="data:image/png;base64,{logo_b64}" style="height:260px;width:auto;object-fit:contain;" />
         <div class="dashboard-title" style="margin-bottom:0;">Customer Tracking Dashboard</div>
     </div>
     """, unsafe_allow_html=True)
@@ -1355,23 +1355,45 @@ with tabs[1]:
                     st.markdown("**Make your changes below, then click Save.**")
 
                     form_vals = {}
-                    # Group into columns for a cleaner layout
+
+                    # Split fields into regular and boolean
+                    bool_keywords = ["check", "signed", "complete", "submitted", "meeting", "face time", "gift"]
+                    regular_cols = []
+                    bool_cols    = []
+
+                    for col in editable_cols:
+                        col_lower = col.lower()
+                        is_bool = (
+                            col in (checkin_col, signoff_col)
+                            or any(kw in col_lower for kw in bool_keywords)
+                        )
+                        # Also detect columns that actually contain True/False/1.0/0.0
+                        if not is_bool:
+                            sample = customer_df[col].dropna()
+                            if not sample.empty:
+                                sample_vals = set(str(v).strip().lower() for v in sample.head(10))
+                                if sample_vals.issubset({"true","false","1","0","1.0","0.0","yes","no"}):
+                                    is_bool = True
+                        if is_bool:
+                            bool_cols.append(col)
+                        else:
+                            regular_cols.append(col)
+
+                    # ── Regular fields in 2-col grid ──────────────
                     col_a, col_b = st.columns(2)
-                    for i, col in enumerate(editable_cols):
+                    for i, col in enumerate(regular_cols):
                         raw_val = record.get(col, None)
                         widget_col = col_a if i % 2 == 0 else col_b
 
                         with widget_col:
                             col_lower = col.lower()
 
-                            # Account Manager → selectbox from existing AMs
                             if col == am_col and am_col:
                                 am_options = sorted(customer_df[am_col].dropna().astype(str).unique().tolist())
                                 cur = str(raw_val).strip() if raw_val and not pd.isna(raw_val) else am_options[0]
                                 idx = am_options.index(cur) if cur in am_options else 0
                                 form_vals[col] = st.selectbox(col, am_options, index=idx, key=f"fe_{cust_code}_{col}")
 
-                            # Contract Expiration → date picker
                             elif col == exp_col and exp_col:
                                 try:
                                     cur_date = pd.to_datetime(raw_val).date()
@@ -1379,14 +1401,6 @@ with tabs[1]:
                                     cur_date = pd.Timestamp.today().date()
                                 form_vals[col] = st.date_input(col, value=cur_date, key=f"fe_{cust_code}_{col}")
 
-                            # Boolean fields → checkbox
-                            elif col in (checkin_col, signoff_col) or any(
-                                kw in col_lower for kw in ["check", "signed", "complete", "submitted"]
-                            ):
-                                cur_bool = str(raw_val).strip().lower() in ("true", "yes", "1", "1.0")
-                                form_vals[col] = st.checkbox(col, value=cur_bool, key=f"fe_{cust_code}_{col}")
-
-                            # Tier → selectbox
                             elif col == tier_col and tier_col:
                                 tier_options = sorted(
                                     customer_df[tier_col].dropna().astype(str).unique().tolist(),
@@ -1396,17 +1410,29 @@ with tabs[1]:
                                 idx = tier_options.index(cur) if cur in tier_options else 0
                                 form_vals[col] = st.selectbox(col, tier_options, index=idx, key=f"fe_{cust_code}_{col}")
 
-                            # Status → selectbox
                             elif col == status_col and status_col:
                                 status_opts = sorted(customer_df[status_col].dropna().astype(str).unique().tolist())
                                 cur = str(raw_val).strip() if raw_val and not pd.isna(raw_val) else status_opts[0]
                                 idx = status_opts.index(cur) if cur in status_opts else 0
                                 form_vals[col] = st.selectbox(col, status_opts, index=idx, key=f"fe_{cust_code}_{col}")
 
-                            # Everything else → text input
                             else:
                                 cur_str = "" if pd.isna(raw_val) else str(raw_val).strip()
                                 form_vals[col] = st.text_input(col, value=cur_str, key=f"fe_{cust_code}_{col}")
+
+                    # ── Checkboxes grouped at the bottom ──────────
+                    if bool_cols:
+                        st.markdown("---")
+                        st.markdown('<p style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#3d6494;margin-bottom:8px;">Confirmations & Flags</p>', unsafe_allow_html=True)
+                        # Render checkboxes in rows of 3
+                        for row_start in range(0, len(bool_cols), 3):
+                            chunk = bool_cols[row_start:row_start+3]
+                            cb_cols = st.columns(len(chunk))
+                            for cb_col_widget, col in zip(cb_cols, chunk):
+                                raw_val = record.get(col, None)
+                                cur_bool = str(raw_val).strip().lower() in ("true", "yes", "1", "1.0")
+                                with cb_col_widget:
+                                    form_vals[col] = st.checkbox(col, value=cur_bool, key=f"fe_{cust_code}_{col}")
 
                     st.markdown("")
                     save_col, cancel_col, _ = st.columns([1, 1, 3])
