@@ -257,9 +257,24 @@ def section_close():
 # =========================================================
 @st.cache_data
 def load_workbook(path: str) -> dict[str, pd.DataFrame]:
-    """Load every sheet in the workbook into a dict keyed by sheet name."""
+    """
+    Load every sheet. For sheets that look like MRC sheets, also try
+    header row 1 (index=1) in case the first row is a merged title row.
+    """
     xls = pd.ExcelFile(path)
-    return {sheet: normalize_df(pd.read_excel(path, sheet_name=sheet)) for sheet in xls.sheet_names}
+    result = {}
+    for sheet in xls.sheet_names:
+        df = normalize_df(pd.read_excel(path, sheet_name=sheet))
+        norm = sheet.strip().lower()
+        # For MRC-style sheets, check if first real column looks like a header offset
+        if "mrc" in norm or "contracted" in norm:
+            # If the first row appears to be a title (most cols NaN), try header=1
+            if df.iloc[0].isna().sum() > len(df.columns) * 0.5:
+                df_alt = normalize_df(pd.read_excel(path, sheet_name=sheet, header=1))
+                if len(df_alt.columns) >= len(df.columns):
+                    df = df_alt
+        result[sheet] = df
+    return result
 
 
 # =========================================================
@@ -492,18 +507,43 @@ if not os.path.exists(FILE_PATH):
 
 sheets = load_workbook(FILE_PATH)
 
-# Debug sidebar — shows exact sheet/column names to diagnose mismatches
+# Debug sidebar
 with st.sidebar:
     st.markdown("### 🔧 Debug Info")
     st.write("**Loaded sheets:**", list(sheets.keys()))
     mrc_sheet_name, mrc_debug_df = get_mrc_sheet(sheets)
     st.write("**MRC sheet detected:**", mrc_sheet_name or "❌ NOT FOUND")
+
     if not mrc_debug_df.empty:
         st.write("**MRC sheet columns:**")
         for c in mrc_debug_df.columns:
-            st.code(c)
+            st.code(repr(c))
+
         detected_it_col = find_it_mrc_col(mrc_debug_df)
         st.write("**IT MRC column matched:**", detected_it_col or "❌ NOT FOUND")
+
+        mrc_code_col_debug = find_col(mrc_debug_df, CODE_CANDIDATES)
+        mrc_name_col_debug = find_col(mrc_debug_df, NAME_CANDIDATES)
+        st.write("**MRC code col:**", mrc_code_col_debug or "❌ NOT FOUND")
+        st.write("**MRC name col:**", mrc_name_col_debug or "❌ NOT FOUND")
+
+        st.markdown("**Sample MRC codes (first 5):**")
+        if mrc_code_col_debug:
+            for v in mrc_debug_df[mrc_code_col_debug].dropna().astype(str).str.strip().head(5):
+                st.code(repr(v))
+        else:
+            st.warning("No code column found in MRC sheet")
+
+        st.markdown("**Sample customer codes (first 5):**")
+        if code_col:
+            for v in customer_df[code_col].dropna().astype(str).str.strip().head(5):
+                st.code(repr(v))
+
+        if detected_it_col:
+            st.markdown("**Sample IT MRC values (first 5):**")
+            for v in mrc_debug_df[detected_it_col].dropna().head(5):
+                st.code(repr(v))
+
     if st.button("Clear cache"):
         st.cache_data.clear()
         st.rerun()
