@@ -557,6 +557,25 @@ st.markdown(
 )
 
 # =========================================================
+# PROFILE HELPER RENDERERS
+# =========================================================
+def bool_badge(val) -> str:
+    s = str(val).strip().lower()
+    if s in ("true", "yes", "1", "1.0"):
+        return '<span style="background:rgba(63,185,80,0.15);border:1px solid rgba(63,185,80,0.4);color:#3fb950;font-size:0.8rem;font-weight:700;padding:3px 12px;border-radius:20px;">✓ Yes</span>'
+    elif s in ("false", "no", "0", "0.0"):
+        return '<span style="background:rgba(248,81,73,0.12);border:1px solid rgba(248,81,73,0.35);color:#f85149;font-size:0.8rem;font-weight:700;padding:3px 12px;border-radius:20px;">✗ No</span>'
+    return f'<span style="color:#6b8aad;">{val}</span>'
+
+
+def link_badge(url) -> str:
+    s = str(url).strip()
+    if s.lower().startswith("http"):
+        return f'<a href="{s}" target="_blank" style="display:inline-block;background:rgba(56,139,253,0.12);border:1px solid rgba(56,139,253,0.35);color:#58a6ff;font-size:0.8rem;font-weight:600;padding:4px 14px;border-radius:20px;text-decoration:none;">🔗 Open Smartsheet</a>'
+    return '<span style="color:#4a6fa5;font-style:italic;font-size:0.85rem;">No link stored</span>'
+
+
+# =========================================================
 # TABS
 # =========================================================
 tabs = st.tabs(["Dashboard", "Customer Discovery"])
