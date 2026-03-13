@@ -875,7 +875,6 @@ with tabs[0]:
         if mrc_raw is None or mrc_raw.empty:
             st.info("MRC Contracted Rate sheet not found.")
         else:
-            # Find relevant columns in MRC sheet
             mrc_code_col     = find_col(mrc_raw, CODE_CANDIDATES)
             mrc_name_col     = find_col(mrc_raw, NAME_CANDIDATES)
             mrc_current_col  = find_col(mrc_raw, IT_MRC_CANDIDATES)
@@ -886,56 +885,68 @@ with tabs[0]:
             ])
             mrc_mrr_col = find_col(mrc_raw, MRR_CANDIDATES)
 
-            # Build display dataframe
             keep_cols = [c for c in [mrc_code_col, mrc_name_col, mrc_mrr_col, mrc_current_col, mrc_proposed_col] if c]
+
             if keep_cols:
                 mrc_display = mrc_raw[keep_cols].copy()
 
-                # Rename columns for clarity
+                # Rename for clarity
                 rename_map = {}
-                if mrc_code_col:    rename_map[mrc_code_col]     = "Customer Code"
-                if mrc_name_col:    rename_map[mrc_name_col]     = "Customer Name"
-                if mrc_mrr_col:     rename_map[mrc_mrr_col]      = "MRR"
-                if mrc_current_col: rename_map[mrc_current_col]  = "Current IT Services MRC"
-                if mrc_proposed_col:rename_map[mrc_proposed_col] = "Proposed IT Services MRC"
+                if mrc_code_col:     rename_map[mrc_code_col]     = "Customer Code"
+                if mrc_name_col:     rename_map[mrc_name_col]     = "Customer Name"
+                if mrc_mrr_col:      rename_map[mrc_mrr_col]      = "MRR"
+                if mrc_current_col:  rename_map[mrc_current_col]  = "Current IT MRC"
+                if mrc_proposed_col: rename_map[mrc_proposed_col] = "Proposed IT MRC"
                 mrc_display.rename(columns=rename_map, inplace=True)
 
-                # Compute MRC Difference if both columns exist
-                if mrc_current_col and mrc_proposed_col:
-                    cur_vals  = to_numeric(mrc_display["Current IT Services MRC"])
-                    prop_vals = to_numeric(mrc_display["Proposed IT Services MRC"])
-                    mrc_display["MRC Difference"] = prop_vals - cur_vals
-
-                # Drop rows with no customer code
+                # Drop empty rows
                 if "Customer Code" in mrc_display.columns:
                     mrc_display = mrc_display[mrc_display["Customer Code"].notna()]
-                    mrc_display = mrc_display[mrc_display["Customer Code"].astype(str).str.strip() != ""]
+                    mrc_display = mrc_display[mrc_display["Customer Code"].astype(str).str.strip().ne("")]
 
-                # Apply filters from the dashboard
+                # Apply dashboard filters
                 if "Customer Code" in mrc_display.columns and code_col:
                     filtered_codes = set(safe_str(filtered[code_col]).tolist())
                     mrc_display = mrc_display[mrc_display["Customer Code"].astype(str).isin(filtered_codes)]
 
-                # Format currency columns
-                for cur_col in ["MRR", "Current IT Services MRC", "Proposed IT Services MRC"]:
-                    if cur_col in mrc_display.columns:
-                        mrc_display[cur_col] = to_numeric(mrc_display[cur_col]).apply(
-                            lambda v: f"${v:,.2f}" if pd.notna(v) else "—"
-                        )
-                if "MRC Difference" in mrc_display.columns:
-                    raw_diff = to_numeric(mrc_raw[mrc_proposed_col] if mrc_proposed_col else pd.Series()) - \
-                               to_numeric(mrc_raw[mrc_current_col] if mrc_current_col else pd.Series())
-                    # Re-derive after filtering for display
-                    cur_num  = mrc_display["Current IT Services MRC"].apply(
-                        lambda v: float(str(v).replace("$","").replace(",","")) if v != "—" else None
+                # Numeric versions for KPIs and difference
+                cur_num  = to_numeric(mrc_display["Current IT MRC"])  if "Current IT MRC"  in mrc_display.columns else pd.Series(dtype=float)
+                prop_num = to_numeric(mrc_display["Proposed IT MRC"]) if "Proposed IT MRC" in mrc_display.columns else pd.Series(dtype=float)
+                mrr_num  = to_numeric(mrc_display["MRR"])             if "MRR"             in mrc_display.columns else pd.Series(dtype=float)
+
+                total_current  = cur_num.sum()
+                total_proposed = prop_num.sum() if not prop_num.empty else 0
+                total_uplift   = total_proposed - total_current
+                total_mrr      = mrr_num.sum()
+
+                # ── KPI row ───────────────────────────────────
+                k1, k2, k3, k4 = st.columns(4)
+                kpi_style = "background:#0d1f38;border:1px solid #1e3a5f;border-radius:12px;padding:14px 16px;text-align:center;"
+                lbl_style = "font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#4a6fa5;margin-bottom:6px;"
+                with k1:
+                    st.markdown(f'<div style="{kpi_style}"><div style="{lbl_style}">Total MRR</div><div style="font-size:1.3rem;font-weight:800;color:#e8f0fe;">${total_mrr:,.0f}</div></div>', unsafe_allow_html=True)
+                with k2:
+                    st.markdown(f'<div style="{kpi_style}"><div style="{lbl_style}">Current IT MRC</div><div style="font-size:1.3rem;font-weight:800;color:#58a6ff;">${total_current:,.0f}</div></div>', unsafe_allow_html=True)
+                with k3:
+                    st.markdown(f'<div style="{kpi_style}"><div style="{lbl_style}">Proposed IT MRC</div><div style="font-size:1.3rem;font-weight:800;color:#e3b341;">${total_proposed:,.0f}</div></div>', unsafe_allow_html=True)
+                with k4:
+                    uplift_color = "#3fb950" if total_uplift >= 0 else "#f85149"
+                    uplift_sign  = "+" if total_uplift >= 0 else ""
+                    st.markdown(f'<div style="{kpi_style}"><div style="{lbl_style}">MRC Uplift</div><div style="font-size:1.3rem;font-weight:800;color:{uplift_color};">{uplift_sign}${total_uplift:,.0f}</div></div>', unsafe_allow_html=True)
+
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+                # ── Clean table ───────────────────────────────
+                if "Current IT MRC" in mrc_display.columns and "Proposed IT MRC" in mrc_display.columns:
+                    diff = prop_num - cur_num
+                    mrc_display["Difference"] = diff.apply(
+                        lambda v: (f"+${v:,.2f}" if v >= 0 else f"-${abs(v):,.2f}") if pd.notna(v) else "—"
                     )
-                    prop_num = mrc_display["Proposed IT Services MRC"].apply(
-                        lambda v: float(str(v).replace("$","").replace(",","")) if v != "—" else None
-                    ) if "Proposed IT Services MRC" in mrc_display.columns else None
-                    if prop_num is not None:
-                        diff_num = prop_num - cur_num
-                        mrc_display["MRC Difference"] = diff_num.apply(
-                            lambda v: (f"+${v:,.2f}" if v >= 0 else f"-${abs(v):,.2f}") if pd.notna(v) else "—"
+
+                for col_name in ["MRR", "Current IT MRC", "Proposed IT MRC"]:
+                    if col_name in mrc_display.columns:
+                        mrc_display[col_name] = to_numeric(mrc_display[col_name]).apply(
+                            lambda v: f"${v:,.2f}" if pd.notna(v) else "—"
                         )
 
                 st.dataframe(mrc_display, use_container_width=True, hide_index=True)
