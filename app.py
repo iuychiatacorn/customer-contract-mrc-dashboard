@@ -255,25 +255,37 @@ def section_close():
 # =========================================================
 # WORKBOOK LOADING
 # =========================================================
+def detect_header_row(path: str, sheet: str, max_scan: int = 10) -> int:
+    """
+    Scan the first max_scan rows and return the index of the row that looks
+    most like a header — i.e. has the most non-null string values.
+    Handles sheets where rows 1-N are legend/title/blank rows before the
+    real column headers (e.g. your MRC sheet with headers on row 5).
+    """
+    raw = pd.read_excel(path, sheet_name=sheet, header=None, nrows=max_scan)
+    best_row = 0
+    best_score = -1
+    for i, row in raw.iterrows():
+        score = int(row.dropna().apply(lambda v: isinstance(v, str)).sum())
+        if score > best_score:
+            best_score = score
+            best_row = i
+    return int(best_row)
+
+
 @st.cache_data
 def load_workbook(path: str) -> dict[str, pd.DataFrame]:
     """
-    Load every sheet. For sheets that look like MRC sheets, also try
-    header row 1 (index=1) in case the first row is a merged title row.
+    Load every sheet, auto-detecting the true header row for each sheet.
+    This handles workbooks where rows 1-N are legend/title rows before the
+    real column headers (like the MRC Contracted Rate sheet with headers on row 5).
     """
     xls = pd.ExcelFile(path)
     result = {}
     for sheet in xls.sheet_names:
-        df = normalize_df(pd.read_excel(path, sheet_name=sheet))
-        norm = sheet.strip().lower()
-        # For MRC-style sheets, check if first real column looks like a header offset
-        if "mrc" in norm or "contracted" in norm:
-            # If the first row appears to be a title (most cols NaN), try header=1
-            if df.iloc[0].isna().sum() > len(df.columns) * 0.5:
-                df_alt = normalize_df(pd.read_excel(path, sheet_name=sheet, header=1))
-                if len(df_alt.columns) >= len(df.columns):
-                    df = df_alt
-        result[sheet] = df
+        header_row = detect_header_row(path, sheet)
+        df = pd.read_excel(path, sheet_name=sheet, header=header_row)
+        result[sheet] = normalize_df(df)
     return result
 
 
