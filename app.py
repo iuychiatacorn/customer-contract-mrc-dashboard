@@ -709,14 +709,24 @@ with hdr_left:
         unsafe_allow_html=True
     )
 with hdr_right:
-    st.markdown('<style>div[data-testid="stButton"] button { font-size:1.3rem; padding:4px 10px; background:transparent; border:1px solid #1e3a5f; border-radius:10px; color:#58a6ff; } div[data-testid="stButton"] button:hover { background:#1e3a5f; }</style>', unsafe_allow_html=True)
-    if st.button("🔄", help="Refresh data from GitHub", key="global_refresh"):
-        # Preserve current customer selection across refresh
-        saved_code = st.session_state.get("drilldown_code", "")
-        st.cache_data.clear()
-        if saved_code:
-            st.session_state["drilldown_code"] = saved_code
-        st.rerun()
+    st.markdown('<style>div[data-testid="stButton"] button { font-size:1.1rem; padding:4px 10px; background:transparent; border:1px solid #1e3a5f; border-radius:10px; color:#58a6ff; } div[data-testid="stButton"] button:hover { background:#1e3a5f; }</style>', unsafe_allow_html=True)
+    r1, r2 = st.columns(2)
+    with r1:
+        if st.button("🔄", help="Refresh data from GitHub", key="global_refresh"):
+            saved_code = st.session_state.get("drilldown_code", "")
+            st.cache_data.clear()
+            if saved_code:
+                st.session_state["drilldown_code"] = saved_code
+            st.rerun()
+    with r2:
+        current_code = st.session_state.get("drilldown_code", "")
+        if current_code:
+            edit_key_hdr = f"edit_{current_code}"
+            if st.button("✏️", help="Edit this customer", key="top_edit_btn"):
+                if edit_key_hdr not in st.session_state:
+                    st.session_state[edit_key_hdr] = False
+                st.session_state[edit_key_hdr] = not st.session_state.get(edit_key_hdr, False)
+                st.rerun()
 
 # =========================================================
 # PROFILE HELPER RENDERERS
@@ -1040,31 +1050,18 @@ with tabs[1]:
     """, unsafe_allow_html=True)
 
     # ── Selectors ───────────────────────────────────────────
-    # Persist selected code across refreshes
     if "drilldown_code" not in st.session_state:
         st.session_state["drilldown_code"] = ""
 
-    sel_col, edit_col = st.columns([5, 1])
-    with sel_col:
-        if code_col:
-            code_options = sorted(customer_df[code_col].dropna().astype(str).unique().tolist())
-            selected_code = st.selectbox(
-                "Search by Customer Code",
-                [""] + code_options,
-                key="drilldown_code"
-            )
-        else:
-            selected_code = ""
-
-    with edit_col:
-        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-        edit_key = f"edit_{st.session_state.get('drilldown_code','')}"
-        if st.session_state.get('drilldown_code', ''):
-            if st.button("✏️", help="Edit this customer", key="top_edit_btn"):
-                if edit_key not in st.session_state:
-                    st.session_state[edit_key] = False
-                st.session_state[edit_key] = not st.session_state.get(edit_key, False)
-                st.rerun()
+    if code_col:
+        code_options = sorted(customer_df[code_col].dropna().astype(str).unique().tolist())
+        selected_code = st.selectbox(
+            "Search by Customer Code",
+            [""] + code_options,
+            key="drilldown_code"
+        )
+    else:
+        selected_code = ""
 
     # ── Profile ─────────────────────────────────────────────
     if not selected_code or not code_col:
