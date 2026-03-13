@@ -146,6 +146,8 @@ EXP_CANDIDATES         = ["Contract Expiration", "Contract Expiry", "Expiration"
 NEXT_REVIEW_CANDIDATES = ["Next Business Review", "Next Review", "Next QBR"]
 CHECKIN_CANDIDATES     = ["Pre/Check-in meetings?", "Pre/Check-in meetings", "Pre Check-in meetings", "Check-in meetings", "Pre/Checkin"]
 SMARTSHEET_CANDIDATES  = ["Smartsheet", "Smart Sheet", "SmartSheet Link", "Smartsheet Link"]
+BOOLEAN_CANDIDATES     = CHECKIN_CANDIDATES + ["Signed off by C/U", "Signed off by C U", "Signed off", "Sign off"]
+QBR_GEN_CANDIDATES     = ["QBR vCIO Generated", "QBR Generated", "QBR vCIO", "QBR Date"]
 
 # =========================================================
 # HELPERS
@@ -976,7 +978,9 @@ with tabs[1]:
                 # Identify special columns
                 checkin_col    = find_col(customer_df, CHECKIN_CANDIDATES)
                 smartsheet_col = find_col(customer_df, SMARTSHEET_CANDIDATES)
-                special_cols   = {checkin_col, smartsheet_col} - {None}
+                signoff_col    = find_col(customer_df, ["Signed off by C/U", "Signed off by C U", "Signed off", "Sign off"])
+                qbr_gen_col    = find_col(customer_df, QBR_GEN_CANDIDATES)
+                special_cols   = {checkin_col, smartsheet_col, signoff_col, qbr_gen_col} - {None}
 
                 shown_cols = {code_col, name_col, tier_col, am_col, mrr_col, exp_col, status_col} | special_cols
 
@@ -1049,6 +1053,35 @@ with tabs[1]:
                             <div class="info-row-label">Pre/Check-in Meeting</div>
                             <div class="info-row-value">{bool_badge(checkin_val)}</div>
                         </div>""", unsafe_allow_html=True)
+
+                # Signed off by C/U row
+                if signoff_col:
+                    signoff_val = record.get(signoff_col, None)
+                    if not (pd.isna(signoff_val) if not isinstance(signoff_val, str) else False):
+                        st.markdown(f"""
+                        <div class="info-row">
+                            <div class="info-row-icon">✅</div>
+                            <div class="info-row-label">Signed off by C/U</div>
+                            <div class="info-row-value">{bool_badge(signoff_val)}</div>
+                        </div>""", unsafe_allow_html=True)
+
+                # QBR vCIO Generated row
+                if qbr_gen_col:
+                    qbr_val = record.get(qbr_gen_col, None)
+                    qbr_is_blank = pd.isna(qbr_val) if not isinstance(qbr_val, str) else str(qbr_val).strip() in ("", "nan", "NaT")
+                    if qbr_is_blank:
+                        qbr_display = '<span style="color:#4a6fa5;font-style:italic;font-size:0.85rem;">No QBR Generated</span>'
+                    else:
+                        try:
+                            qbr_display = f'<span style="background:rgba(63,185,80,0.15);border:1px solid rgba(63,185,80,0.4);color:#3fb950;font-size:0.8rem;font-weight:700;padding:3px 12px;border-radius:20px;">📅 {pd.to_datetime(qbr_val).strftime("%b %d, %Y")}</span>'
+                        except Exception:
+                            qbr_display = f'<span style="color:#c9d8ec;">{str(qbr_val).strip()}</span>'
+                    st.markdown(f"""
+                    <div class="info-row">
+                        <div class="info-row-icon">📑</div>
+                        <div class="info-row-label">QBR vCIO Generated</div>
+                        <div class="info-row-value">{qbr_display}</div>
+                    </div>""", unsafe_allow_html=True)
 
                 # Smartsheet row
                 if smartsheet_col:
