@@ -868,19 +868,80 @@ with tabs[0]:
         section_close()
 
     with b2:
-        section_open("At-Risk / Upcoming Renewals", "Soonest contract expirations")
-        risk_cols = [c for c in [code_col, name_col, status_col, tier_col, am_col, mrr_col, exp_col] if c]
-        if risk_cols:
-            risk_df = filtered[risk_cols].copy()
-            if exp_col and exp_col in risk_df.columns:
-                risk_df["_exp_dt"] = to_dt(risk_df[exp_col])
-                risk_df = risk_df.sort_values("_exp_dt", ascending=True, na_position="last").drop(columns=["_exp_dt"])
-                risk_df[exp_col] = risk_df[exp_col].apply(format_contract_cell)
-            if mrr_col and mrr_col in risk_df.columns:
-                risk_df[mrr_col] = risk_df[mrr_col].apply(format_currency_cell)
-            st.dataframe(risk_df.head(15), use_container_width=True, hide_index=True)
+        section_open("IT Services MRC Overview", "Current vs Proposed rates from MRC Contracted Rate sheet")
+
+        mrc_sheet_name, mrc_raw = get_mrc_sheet(sheets)
+
+        if mrc_raw is None or mrc_raw.empty:
+            st.info("MRC Contracted Rate sheet not found.")
         else:
-            st.info("No risk/renewal fields found.")
+            # Find relevant columns in MRC sheet
+            mrc_code_col     = find_col(mrc_raw, CODE_CANDIDATES)
+            mrc_name_col     = find_col(mrc_raw, NAME_CANDIDATES)
+            mrc_current_col  = find_col(mrc_raw, IT_MRC_CANDIDATES)
+            mrc_proposed_col = find_col(mrc_raw, [
+                "Proposed IT Services MRC", "Proposed IT-Services MRC",
+                "Proposed MRC", "Proposed IT Services", "Proposed Rate",
+                "Proposed IT MRC", "Proposed"
+            ])
+            mrc_mrr_col = find_col(mrc_raw, MRR_CANDIDATES)
+
+            # Build display dataframe
+            keep_cols = [c for c in [mrc_code_col, mrc_name_col, mrc_mrr_col, mrc_current_col, mrc_proposed_col] if c]
+            if keep_cols:
+                mrc_display = mrc_raw[keep_cols].copy()
+
+                # Rename columns for clarity
+                rename_map = {}
+                if mrc_code_col:    rename_map[mrc_code_col]     = "Customer Code"
+                if mrc_name_col:    rename_map[mrc_name_col]     = "Customer Name"
+                if mrc_mrr_col:     rename_map[mrc_mrr_col]      = "MRR"
+                if mrc_current_col: rename_map[mrc_current_col]  = "Current IT Services MRC"
+                if mrc_proposed_col:rename_map[mrc_proposed_col] = "Proposed IT Services MRC"
+                mrc_display.rename(columns=rename_map, inplace=True)
+
+                # Compute MRC Difference if both columns exist
+                if mrc_current_col and mrc_proposed_col:
+                    cur_vals  = to_numeric(mrc_display["Current IT Services MRC"])
+                    prop_vals = to_numeric(mrc_display["Proposed IT Services MRC"])
+                    mrc_display["MRC Difference"] = prop_vals - cur_vals
+
+                # Drop rows with no customer code
+                if "Customer Code" in mrc_display.columns:
+                    mrc_display = mrc_display[mrc_display["Customer Code"].notna()]
+                    mrc_display = mrc_display[mrc_display["Customer Code"].astype(str).str.strip() != ""]
+
+                # Apply filters from the dashboard
+                if "Customer Code" in mrc_display.columns and code_col:
+                    filtered_codes = set(safe_str(filtered[code_col]).tolist())
+                    mrc_display = mrc_display[mrc_display["Customer Code"].astype(str).isin(filtered_codes)]
+
+                # Format currency columns
+                for cur_col in ["MRR", "Current IT Services MRC", "Proposed IT Services MRC"]:
+                    if cur_col in mrc_display.columns:
+                        mrc_display[cur_col] = to_numeric(mrc_display[cur_col]).apply(
+                            lambda v: f"${v:,.2f}" if pd.notna(v) else "—"
+                        )
+                if "MRC Difference" in mrc_display.columns:
+                    raw_diff = to_numeric(mrc_raw[mrc_proposed_col] if mrc_proposed_col else pd.Series()) - \
+                               to_numeric(mrc_raw[mrc_current_col] if mrc_current_col else pd.Series())
+                    # Re-derive after filtering for display
+                    cur_num  = mrc_display["Current IT Services MRC"].apply(
+                        lambda v: float(str(v).replace("$","").replace(",","")) if v != "—" else None
+                    )
+                    prop_num = mrc_display["Proposed IT Services MRC"].apply(
+                        lambda v: float(str(v).replace("$","").replace(",","")) if v != "—" else None
+                    ) if "Proposed IT Services MRC" in mrc_display.columns else None
+                    if prop_num is not None:
+                        diff_num = prop_num - cur_num
+                        mrc_display["MRC Difference"] = diff_num.apply(
+                            lambda v: (f"+${v:,.2f}" if v >= 0 else f"-${abs(v):,.2f}") if pd.notna(v) else "—"
+                        )
+
+                st.dataframe(mrc_display, use_container_width=True, hide_index=True)
+            else:
+                st.info("Could not detect required columns in MRC sheet.")
+
         section_close()
 
     section_open("Customer Table", "Filtered master customer view")
