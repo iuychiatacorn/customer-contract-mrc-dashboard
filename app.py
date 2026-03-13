@@ -277,13 +277,62 @@ def detect_header_row(path: str, sheet: str, max_scan: int = 10) -> int:
     return int(best_row)
 
 
+@st.cache_data(ttl=300)
+def load_workbook_from_github() -> dict[str, pd.DataFrame]:
+    """Load workbook from GitHub if credentials are set, otherwise fall back to local file."""
+    import requests, base64, io
+
+    token, repo, gh_path = get_github_config()
+
+    if token and repo and gh_path:
+        headers = {
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github.v3+json",
+        }
+        api_url = f"https://api.github.com/repos/{repo}/contents/{gh_path}"
+        r = requests.get(api_url, headers=headers)
+        if r.status_code == 200:
+            raw_bytes = base64.b64decode(r.json()["content"])
+            file_like = io.BytesIO(raw_bytes)
+        else:
+            # Fall back to local
+            file_like = FILE_PATH
+    else:
+        file_like = FILE_PATH
+
+    xls = pd.ExcelFile(file_like)
+    result = {}
+    for sheet in xls.sheet_names:
+        if isinstance(file_like, io.BytesIO):
+            file_like.seek(0)
+        hr = detect_header_row_bytes(file_like if isinstance(file_like, io.BytesIO) else FILE_PATH, sheet)
+        if isinstance(file_like, io.BytesIO):
+            file_like.seek(0)
+        df = pd.read_excel(file_like, sheet_name=sheet, header=hr)
+        result[sheet] = normalize_df(df)
+        if isinstance(file_like, io.BytesIO):
+            file_like.seek(0)
+    return result
+
+
+def detect_header_row_bytes(source, sheet: str, max_scan: int = 10) -> int:
+    """Detect header row from a file path or BytesIO object."""
+    import io
+    if isinstance(source, io.BytesIO):
+        source.seek(0)
+    raw = pd.read_excel(source, sheet_name=sheet, header=None, nrows=max_scan)
+    best_row, best_score = 0, -1
+    for i, row in raw.iterrows():
+        score = int(sum(isinstance(v, str) for v in row.dropna()))
+        if score > best_score:
+            best_score, best_row = score, i
+    return int(best_row)
+
+
+# Keep local load as fallback
 @st.cache_data
 def load_workbook(path: str) -> dict[str, pd.DataFrame]:
-    """
-    Load every sheet, auto-detecting the true header row for each sheet.
-    This handles workbooks where rows 1-N are legend/title rows before the
-    real column headers (like the MRC Contracted Rate sheet with headers on row 5).
-    """
+    """Load every sheet from local file, auto-detecting the true header row."""
     xls = pd.ExcelFile(path)
     result = {}
     for sheet in xls.sheet_names:
@@ -623,7 +672,7 @@ if not os.path.exists(FILE_PATH):
     st.error(f"❌ Excel file not found at: `{FILE_PATH}`\n\nMake sure **Customer Contract and MRC Tracking.xlsx** is in the same folder as this script.")
     st.stop()
 
-sheets = load_workbook(FILE_PATH)
+sheets = load_workbook_from_github()
 
 # Resolve customer status sheet (case-insensitive)
 customer_sheet_name = None
@@ -651,11 +700,18 @@ next_review_col = find_col(customer_df, NEXT_REVIEW_CANDIDATES)
 # HEADER
 # =========================================================
 st.markdown('<div class="dashboard-title">Customer Tracking Dashboard</div>', unsafe_allow_html=True)
-st.markdown(
-    f'<div class="dashboard-subtitle">Workbook source: <strong>{customer_sheet_name}</strong> &nbsp;|&nbsp; '
-    f'MRC sheet: <strong>{get_mrc_sheet(sheets)[0] or "not found"}</strong></div>',
-    unsafe_allow_html=True
-)
+
+hdr_left, hdr_right = st.columns([5, 1])
+with hdr_left:
+    st.markdown(
+        f'<div class="dashboard-subtitle">Workbook source: <strong>{customer_sheet_name}</strong> &nbsp;|&nbsp; '
+        f'MRC sheet: <strong>{get_mrc_sheet(sheets)[0] or "not found"}</strong></div>',
+        unsafe_allow_html=True
+    )
+with hdr_right:
+    if st.button("🔄 Refresh Data", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
 
 # =========================================================
 # PROFILE HELPER RENDERERS
@@ -1299,10 +1355,9 @@ with tabs[1]:
                             updated_fields=form_vals
                         )
                     if ok:
-                        st.success(msg)
+                        st.success(msg + " Click **🔄 Refresh Data** at the top to see your changes.")
                         st.cache_data.clear()
                         st.session_state[edit_key] = False
-                        st.rerun()
                     else:
                         st.error(msg)
 
