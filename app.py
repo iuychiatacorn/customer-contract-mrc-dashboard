@@ -1041,6 +1041,8 @@ with tabs[1]:
                             break
                     extra_rows.append((icon, col, val))
 
+                has_content = bool(cust_status or checkin_col or signoff_col or qbr_gen_col or smartsheet_col or extra_rows)
+
                 if has_content:
                     # Open panel with a unique marker div Streamlit won't collapse
                     st.markdown("""
