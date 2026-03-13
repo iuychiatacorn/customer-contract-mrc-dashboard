@@ -137,7 +137,10 @@ IT_MRC_CANDIDATES    = [
     "IT Services MRC",
     "IT Services MR",
     "IT-Services MRC",
+    "IT MRC",
+    "IT MR",
     "Current MRC",
+    "MRC",
 ]
 EXP_CANDIDATES       = ["Contract Expiration", "Contract Expiry", "Expiration", "Renewal Date", "Contract End"]
 NEXT_REVIEW_CANDIDATES = ["Next Business Review", "Next Review", "Next QBR"]
@@ -308,6 +311,22 @@ def get_customer_mrc_record(
     return match
 
 
+def find_it_mrc_col(df: pd.DataFrame) -> str | None:
+    """
+    First tries the explicit candidates list.
+    Falls back to any column whose canonical name contains both 'it' and 'mrc'
+    OR both 'it' and 'services', to survive any naming variation in the workbook.
+    """
+    col = find_col(df, IT_MRC_CANDIDATES)
+    if col:
+        return col
+    for c in df.columns:
+        norm = canonical(c)
+        if "it" in norm and ("mrc" in norm or "services" in norm):
+            return c
+    return None
+
+
 def get_it_services_value_for_customer(
     sheets: dict[str, pd.DataFrame],
     customer_code: str = "",
@@ -321,8 +340,7 @@ def get_it_services_value_for_customer(
     if mrc_match.empty:
         return 0.0
 
-    # Use find_col (consistent with the rest of the codebase)
-    mrc_it_col = find_col(mrc_match, IT_MRC_CANDIDATES)
+    mrc_it_col = find_it_mrc_col(mrc_match)
     if not mrc_it_col:
         return 0.0
 
@@ -342,8 +360,8 @@ def get_total_it_services_mrc_for_filtered(
     mrc_code_col = find_col(mrc_df, CODE_CANDIDATES)
     mrc_name_col = find_col(mrc_df, NAME_CANDIDATES)
 
-    # FIX: use find_col instead of manual loop (was inconsistent and could miss column)
-    mrc_it_col = find_col(mrc_df, IT_MRC_CANDIDATES)
+    # Use smart finder that falls back to keyword scan if candidates list misses
+    mrc_it_col = find_it_mrc_col(mrc_df)
     if not mrc_it_col:
         return 0.0
 
@@ -474,10 +492,22 @@ if not os.path.exists(FILE_PATH):
 
 sheets = load_workbook(FILE_PATH)
 
-# Debug helper — uncomment to verify sheet names during setup:
-# st.sidebar.write("📋 Loaded sheets:", list(sheets.keys()))
-# mrc_name, _ = get_mrc_sheet(sheets)
-# st.sidebar.write("🔗 MRC sheet detected:", mrc_name)
+# Debug sidebar — shows exact sheet/column names to diagnose mismatches
+with st.sidebar:
+    st.markdown("### 🔧 Debug Info")
+    st.write("**Loaded sheets:**", list(sheets.keys()))
+    mrc_sheet_name, mrc_debug_df = get_mrc_sheet(sheets)
+    st.write("**MRC sheet detected:**", mrc_sheet_name or "❌ NOT FOUND")
+    if not mrc_debug_df.empty:
+        st.write("**MRC sheet columns:**")
+        for c in mrc_debug_df.columns:
+            st.code(c)
+        detected_it_col = find_it_mrc_col(mrc_debug_df)
+        st.write("**IT MRC column matched:**", detected_it_col or "❌ NOT FOUND")
+    if st.button("Clear cache"):
+        st.cache_data.clear()
+        st.rerun()
+
 
 # Resolve customer status sheet (case-insensitive)
 customer_sheet_name = None
