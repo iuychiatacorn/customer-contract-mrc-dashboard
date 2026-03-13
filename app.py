@@ -722,7 +722,7 @@ logo_b64 = get_logo_base64()
 if logo_b64:
     st.markdown(f"""
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:4px;">
-        <img src="data:image/png;base64,{logo_b64}" style="height:130px;width:auto;object-fit:contain;" />
+        <img src="data:image/png;base64,{logo_b64}" style="height:80px;width:auto;object-fit:contain;" />
         <div class="dashboard-title" style="margin-bottom:0;">Customer Tracking Dashboard</div>
     </div>
     """, unsafe_allow_html=True)
