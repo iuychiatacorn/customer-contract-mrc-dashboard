@@ -699,7 +699,36 @@ next_review_col = find_col(customer_df, NEXT_REVIEW_CANDIDATES)
 # =========================================================
 # HEADER
 # =========================================================
-st.markdown('<div class="dashboard-title">Customer Tracking Dashboard</div>', unsafe_allow_html=True)
+# Load logo from GitHub
+def get_logo_base64() -> str:
+    import requests, base64
+    token, repo, _ = get_github_config()
+    if not token or not repo:
+        return ""
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3+json",
+    }
+    # Try common logo locations
+    for logo_path in ["Logo.png", "logo.png", "assets/Logo.png", "assets/logo.png"]:
+        url = f"https://api.github.com/repos/{repo}/contents/{logo_path}"
+        r = requests.get(url, headers=headers)
+        if r.status_code == 200:
+            return base64.b64decode(r.json()["content"]).decode("latin-1") if False else r.json()["content"].replace("\n", "")
+    return ""
+
+logo_b64 = get_logo_base64()
+
+if logo_b64:
+    st.markdown(f"""
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:4px;">
+        <img src="data:image/png;base64,{logo_b64}" style="height:52px;width:auto;object-fit:contain;" />
+        <div class="dashboard-title" style="margin-bottom:0;">Customer Tracking Dashboard</div>
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown('<div class="dashboard-title">Customer Tracking Dashboard</div>', unsafe_allow_html=True)
+
 st.markdown(
     f'<div class="dashboard-subtitle">Workbook source: <strong>{customer_sheet_name}</strong> &nbsp;|&nbsp; '
     f'MRC sheet: <strong>{get_mrc_sheet(sheets)[0] or "not found"}</strong></div>',
