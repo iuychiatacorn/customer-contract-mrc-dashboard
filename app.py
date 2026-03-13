@@ -1006,23 +1006,6 @@ with tabs[1]:
                 )}
                 shown_cols = {code_col, name_col, tier_col, am_col, mrr_col, exp_col, status_col} | special_cols | EXCLUDE_COLS
 
-                # Helper: render TRUE/FALSE as styled badge
-                def bool_badge(val) -> str:
-                    s = str(val).strip().lower()
-                    if s in ("true", "yes", "1", "1.0"):
-                        return '<span style="background:rgba(63,185,80,0.15);border:1px solid rgba(63,185,80,0.4);color:#3fb950;font-size:0.8rem;font-weight:700;padding:3px 12px;border-radius:20px;">✓ Yes</span>'
-                    elif s in ("false", "no", "0", "0.0"):
-                        return '<span style="background:rgba(248,81,73,0.12);border:1px solid rgba(248,81,73,0.35);color:#f85149;font-size:0.8rem;font-weight:700;padding:3px 12px;border-radius:20px;">✗ No</span>'
-                    return f'<span style="color:#6b8aad;">{val}</span>'
-
-                # Helper: render a URL as a styled link button
-                def link_badge(url) -> str:
-                    s = str(url).strip()
-                    if s.lower().startswith("http"):
-                        return f'<a href="{s}" target="_blank" style="display:inline-block;background:rgba(56,139,253,0.12);border:1px solid rgba(56,139,253,0.35);color:#58a6ff;font-size:0.8rem;font-weight:600;padding:4px 14px;border-radius:20px;text-decoration:none;">🔗 Open Smartsheet</a>'
-                    # Not a URL yet — show placeholder
-                    return f'<span style="color:#4a6fa5;font-style:italic;font-size:0.85rem;">No link stored</span>'
-
                 # Build regular info rows
                 icon_map = {
                     "next": "📅", "review": "📅", "qbr": "📅",
@@ -1058,78 +1041,55 @@ with tabs[1]:
                             break
                     extra_rows.append((icon, col, val))
 
-                # Build all detail rows as one HTML string, render only if non-empty
-                rows_html = ""
+                # Determine if there's any content to show
+                has_content = bool(
+                    cust_status or checkin_col or signoff_col or qbr_gen_col or smartsheet_col or extra_rows
+                )
 
-                if cust_status:
-                    rows_html += f"""
-                    <div class="info-row">
-                        <div class="info-row-icon">🔵</div>
-                        <div class="info-row-label">Status</div>
-                        <div class="info-row-value">{cust_status}</div>
-                    </div>"""
+                if has_content:
+                    st.markdown('<div class="section-panel"><div class="section-panel-title">Customer Details</div>', unsafe_allow_html=True)
 
-                if checkin_col:
-                    checkin_val = record.get(checkin_col, None)
-                    if not (pd.isna(checkin_val) if not isinstance(checkin_val, str) else False):
-                        rows_html += f"""
-                        <div class="info-row">
-                            <div class="info-row-icon">📋</div>
-                            <div class="info-row-label">Pre/Check-in Meeting</div>
-                            <div class="info-row-value">{bool_badge(checkin_val)}</div>
-                        </div>"""
+                    def info_row(icon, label, value_html):
+                        st.markdown(f"""<div class="info-row">
+                            <div class="info-row-icon">{icon}</div>
+                            <div class="info-row-label">{label}</div>
+                            <div class="info-row-value">{value_html}</div>
+                        </div>""", unsafe_allow_html=True)
 
-                if signoff_col:
-                    signoff_val = record.get(signoff_col, None)
-                    if not (pd.isna(signoff_val) if not isinstance(signoff_val, str) else False):
-                        rows_html += f"""
-                        <div class="info-row">
-                            <div class="info-row-icon">✅</div>
-                            <div class="info-row-label">Signed off by C/U</div>
-                            <div class="info-row-value">{bool_badge(signoff_val)}</div>
-                        </div>"""
+                    if cust_status:
+                        info_row("🔵", "Status", cust_status)
 
-                if qbr_gen_col:
-                    qbr_val = record.get(qbr_gen_col, None)
-                    qbr_is_blank = pd.isna(qbr_val) if not isinstance(qbr_val, str) else str(qbr_val).strip() in ("", "nan", "NaT")
-                    if qbr_is_blank:
-                        qbr_display = '<span style="color:#4a6fa5;font-style:italic;font-size:0.85rem;">No QBR Generated</span>'
-                    else:
-                        try:
-                            qbr_display = f'<span style="background:rgba(63,185,80,0.15);border:1px solid rgba(63,185,80,0.4);color:#3fb950;font-size:0.8rem;font-weight:700;padding:3px 12px;border-radius:20px;">📅 {pd.to_datetime(qbr_val).strftime("%b %d, %Y")}</span>'
-                        except Exception:
-                            qbr_display = f'<span style="color:#c9d8ec;">{str(qbr_val).strip()}</span>'
-                    rows_html += f"""
-                    <div class="info-row">
-                        <div class="info-row-icon">📑</div>
-                        <div class="info-row-label">QBR vCIO Generated</div>
-                        <div class="info-row-value">{qbr_display}</div>
-                    </div>"""
+                    if checkin_col:
+                        checkin_val = record.get(checkin_col, None)
+                        if not (pd.isna(checkin_val) if not isinstance(checkin_val, str) else False):
+                            info_row("📋", "Pre/Check-in Meeting", bool_badge(checkin_val))
 
-                if smartsheet_col:
-                    ss_val = record.get(smartsheet_col, None)
-                    if not (pd.isna(ss_val) if not isinstance(ss_val, str) else False):
-                        rows_html += f"""
-                        <div class="info-row">
-                            <div class="info-row-icon">📊</div>
-                            <div class="info-row-label">Smartsheet</div>
-                            <div class="info-row-value">{link_badge(ss_val)}</div>
-                        </div>"""
+                    if signoff_col:
+                        signoff_val = record.get(signoff_col, None)
+                        if not (pd.isna(signoff_val) if not isinstance(signoff_val, str) else False):
+                            info_row("✅", "Signed off by C/U", bool_badge(signoff_val))
 
-                for icon, label, val in extra_rows:
-                    rows_html += f"""
-                    <div class="info-row">
-                        <div class="info-row-icon">{icon}</div>
-                        <div class="info-row-label">{label}</div>
-                        <div class="info-row-value">{val}</div>
-                    </div>"""
+                    if qbr_gen_col:
+                        qbr_val = record.get(qbr_gen_col, None)
+                        qbr_is_blank = pd.isna(qbr_val) if not isinstance(qbr_val, str) else str(qbr_val).strip() in ("", "nan", "NaT")
+                        if qbr_is_blank:
+                            qbr_display = '<span style="color:#4a6fa5;font-style:italic;font-size:0.85rem;">No QBR Generated</span>'
+                        else:
+                            try:
+                                qbr_display = f'<span style="background:rgba(63,185,80,0.15);border:1px solid rgba(63,185,80,0.4);color:#3fb950;font-size:0.8rem;font-weight:700;padding:3px 12px;border-radius:20px;">📅 {pd.to_datetime(qbr_val).strftime("%b %d, %Y")}</span>'
+                            except Exception:
+                                qbr_display = f'<span style="color:#c9d8ec;">{str(qbr_val).strip()}</span>'
+                        info_row("📑", "QBR vCIO Generated", qbr_display)
 
-                if rows_html.strip():
-                    st.markdown(f"""
-                    <div class="section-panel">
-                        <div class="section-panel-title">Customer Details</div>
-                        {rows_html}
-                    </div>""", unsafe_allow_html=True)
+                    if smartsheet_col:
+                        ss_val = record.get(smartsheet_col, None)
+                        if not (pd.isna(ss_val) if not isinstance(ss_val, str) else False):
+                            info_row("📊", "Smartsheet", link_badge(ss_val))
+
+                    for icon, label, val in extra_rows:
+                        info_row(icon, label, val)
+
+                    st.markdown('</div>', unsafe_allow_html=True)
 
             with right_col:
                 # Related records across sheets
