@@ -519,48 +519,6 @@ if not os.path.exists(FILE_PATH):
 
 sheets = load_workbook(FILE_PATH)
 
-# Debug sidebar
-with st.sidebar:
-    st.markdown("### 🔧 Debug Info")
-    st.write("**Loaded sheets:**", list(sheets.keys()))
-    mrc_sheet_name, mrc_debug_df = get_mrc_sheet(sheets)
-    st.write("**MRC sheet detected:**", mrc_sheet_name or "❌ NOT FOUND")
-
-    if not mrc_debug_df.empty:
-        st.write("**MRC sheet columns:**")
-        for c in mrc_debug_df.columns:
-            st.code(repr(c))
-
-        detected_it_col = find_it_mrc_col(mrc_debug_df)
-        st.write("**IT MRC column matched:**", detected_it_col or "❌ NOT FOUND")
-
-        mrc_code_col_debug = find_col(mrc_debug_df, CODE_CANDIDATES)
-        mrc_name_col_debug = find_col(mrc_debug_df, NAME_CANDIDATES)
-        st.write("**MRC code col:**", mrc_code_col_debug or "❌ NOT FOUND")
-        st.write("**MRC name col:**", mrc_name_col_debug or "❌ NOT FOUND")
-
-        st.markdown("**Sample MRC codes (first 5):**")
-        if mrc_code_col_debug:
-            for v in mrc_debug_df[mrc_code_col_debug].dropna().astype(str).str.strip().head(5):
-                st.code(repr(v))
-        else:
-            st.warning("No code column found in MRC sheet")
-
-        st.markdown("**Sample customer codes (first 5):**")
-        if code_col:
-            for v in customer_df[code_col].dropna().astype(str).str.strip().head(5):
-                st.code(repr(v))
-
-        if detected_it_col:
-            st.markdown("**Sample IT MRC values (first 5):**")
-            for v in mrc_debug_df[detected_it_col].dropna().head(5):
-                st.code(repr(v))
-
-    if st.button("Clear cache"):
-        st.cache_data.clear()
-        st.rerun()
-
-
 # Resolve customer status sheet (case-insensitive)
 customer_sheet_name = None
 for name in sheets:
@@ -580,6 +538,40 @@ tier_col        = find_col(customer_df, TIER_CANDIDATES)
 mrr_col         = find_col(customer_df, MRR_CANDIDATES)
 exp_col         = find_col(customer_df, EXP_CANDIDATES)
 next_review_col = find_col(customer_df, NEXT_REVIEW_CANDIDATES)
+
+# Debug sidebar — all variables are defined above so safe to reference here
+with st.sidebar:
+    st.markdown("### 🔧 Debug Info")
+    st.write("**Loaded sheets:**", list(sheets.keys()))
+    mrc_sheet_name, mrc_debug_df = get_mrc_sheet(sheets)
+    st.write("**MRC sheet detected:**", mrc_sheet_name or "❌ NOT FOUND")
+    if not mrc_debug_df.empty:
+        st.write("**MRC sheet columns:**")
+        for c in mrc_debug_df.columns:
+            st.code(repr(c))
+        detected_it_col = find_it_mrc_col(mrc_debug_df)
+        st.write("**IT MRC column matched:**", detected_it_col or "❌ NOT FOUND")
+        mrc_code_col_debug = find_col(mrc_debug_df, CODE_CANDIDATES)
+        mrc_name_col_debug = find_col(mrc_debug_df, NAME_CANDIDATES)
+        st.write("**MRC code col:**", mrc_code_col_debug or "❌ NOT FOUND")
+        st.write("**MRC name col:**", mrc_name_col_debug or "❌ NOT FOUND")
+        st.markdown("**Sample MRC codes (first 5):**")
+        if mrc_code_col_debug:
+            for v in mrc_debug_df[mrc_code_col_debug].dropna().astype(str).str.strip().head(5):
+                st.code(repr(v))
+        else:
+            st.warning("No code column found in MRC sheet")
+        st.markdown("**Sample customer codes (first 5):**")
+        if code_col:
+            for v in customer_df[code_col].dropna().astype(str).str.strip().head(5):
+                st.code(repr(v))
+        if detected_it_col:
+            st.markdown("**Sample IT MRC values (first 5):**")
+            for v in mrc_debug_df[detected_it_col].dropna().head(5):
+                st.code(repr(v))
+    if st.button("Clear cache"):
+        st.cache_data.clear()
+        st.rerun()
 
 # =========================================================
 # HEADER
