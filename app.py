@@ -710,7 +710,7 @@ def get_logo_base64() -> str:
         "Accept": "application/vnd.github.v3+json",
     }
     # Try common logo locations
-    for logo_path in ["Logo.png", "logo.png", "assets/Logo.png", "assets/logo.png"]:
+    for logo_path in ["md-logo.png", "assets/md-logo.png"]:
         url = f"https://api.github.com/repos/{repo}/contents/{logo_path}"
         r = requests.get(url, headers=headers)
         if r.status_code == 200:
@@ -722,7 +722,7 @@ logo_b64 = get_logo_base64()
 if logo_b64:
     st.markdown(f"""
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:4px;">
-        <img src="data:image/png;base64,{logo_b64}" style="height:260px;width:auto;object-fit:contain;" />
+        <img src="data:image/png;base64,{logo_b64}" style="height:80px;width:auto;object-fit:contain;" />
         <div class="dashboard-title" style="margin-bottom:0;">Customer Tracking Dashboard</div>
     </div>
     """, unsafe_allow_html=True)
