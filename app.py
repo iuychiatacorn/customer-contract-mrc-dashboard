@@ -1033,15 +1033,21 @@ with tabs[1]:
 
     st.markdown("""
     <style>
-    /* Tighten the two icon buttons */
+    /* Icon buttons — centered, square, tight */
     [data-testid="stHorizontalBlock"] [data-testid="stButton"] button {
         font-size: 1.05rem;
-        padding: 6px 10px;
+        padding: 0;
+        height: 38px;
+        width: 38px;
+        min-width: unset;
         background: transparent;
         border: 1px solid #1e3a5f;
         border-radius: 10px;
         color: #58a6ff;
-        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
     }
     [data-testid="stHorizontalBlock"] [data-testid="stButton"] button:hover {
         background: #1e3a5f;
