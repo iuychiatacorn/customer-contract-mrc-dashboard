@@ -885,7 +885,7 @@ with tabs[0]:
             ])
             mrc_mrr_col = find_col(mrc_raw, MRR_CANDIDATES)
 
-            keep_cols = [c for c in [mrc_code_col, mrc_name_col, mrc_mrr_col, mrc_current_col, mrc_proposed_col] if c]
+            keep_cols = [c for c in [mrc_code_col, mrc_name_col, mrc_current_col, mrc_proposed_col] if c]
 
             if keep_cols:
                 mrc_display = mrc_raw[keep_cols].copy()
@@ -894,7 +894,6 @@ with tabs[0]:
                 rename_map = {}
                 if mrc_code_col:     rename_map[mrc_code_col]     = "Customer Code"
                 if mrc_name_col:     rename_map[mrc_name_col]     = "Customer Name"
-                if mrc_mrr_col:      rename_map[mrc_mrr_col]      = "MRR"
                 if mrc_current_col:  rename_map[mrc_current_col]  = "Current IT MRC"
                 if mrc_proposed_col: rename_map[mrc_proposed_col] = "Proposed IT MRC"
                 mrc_display.rename(columns=rename_map, inplace=True)
@@ -912,24 +911,20 @@ with tabs[0]:
                 # Numeric versions for KPIs and difference
                 cur_num  = to_numeric(mrc_display["Current IT MRC"])  if "Current IT MRC"  in mrc_display.columns else pd.Series(dtype=float)
                 prop_num = to_numeric(mrc_display["Proposed IT MRC"]) if "Proposed IT MRC" in mrc_display.columns else pd.Series(dtype=float)
-                mrr_num  = to_numeric(mrc_display["MRR"])             if "MRR"             in mrc_display.columns else pd.Series(dtype=float)
 
                 total_current  = cur_num.sum()
                 total_proposed = prop_num.sum() if not prop_num.empty else 0
                 total_uplift   = total_proposed - total_current
-                total_mrr      = mrr_num.sum()
 
                 # ── KPI row ───────────────────────────────────
-                k1, k2, k3, k4 = st.columns(4)
+                k1, k2, k3 = st.columns(3)
                 kpi_style = "background:#0d1f38;border:1px solid #1e3a5f;border-radius:12px;padding:14px 16px;text-align:center;"
                 lbl_style = "font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#4a6fa5;margin-bottom:6px;"
                 with k1:
-                    st.markdown(f'<div style="{kpi_style}"><div style="{lbl_style}">Total MRR</div><div style="font-size:1.3rem;font-weight:800;color:#e8f0fe;">${total_mrr:,.0f}</div></div>', unsafe_allow_html=True)
-                with k2:
                     st.markdown(f'<div style="{kpi_style}"><div style="{lbl_style}">Current IT MRC</div><div style="font-size:1.3rem;font-weight:800;color:#58a6ff;">${total_current:,.0f}</div></div>', unsafe_allow_html=True)
-                with k3:
+                with k2:
                     st.markdown(f'<div style="{kpi_style}"><div style="{lbl_style}">Proposed IT MRC</div><div style="font-size:1.3rem;font-weight:800;color:#e3b341;">${total_proposed:,.0f}</div></div>', unsafe_allow_html=True)
-                with k4:
+                with k3:
                     uplift_color = "#3fb950" if total_uplift >= 0 else "#f85149"
                     uplift_sign  = "+" if total_uplift >= 0 else ""
                     st.markdown(f'<div style="{kpi_style}"><div style="{lbl_style}">MRC Uplift</div><div style="font-size:1.3rem;font-weight:800;color:{uplift_color};">{uplift_sign}${total_uplift:,.0f}</div></div>', unsafe_allow_html=True)
@@ -943,7 +938,7 @@ with tabs[0]:
                         lambda v: (f"+${v:,.2f}" if v >= 0 else f"-${abs(v):,.2f}") if pd.notna(v) else "—"
                     )
 
-                for col_name in ["MRR", "Current IT MRC", "Proposed IT MRC"]:
+                for col_name in ["Current IT MRC", "Proposed IT MRC"]:
                     if col_name in mrc_display.columns:
                         mrc_display[col_name] = to_numeric(mrc_display[col_name]).apply(
                             lambda v: f"${v:,.2f}" if pd.notna(v) else "—"
