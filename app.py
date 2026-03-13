@@ -1044,31 +1044,7 @@ with tabs[1]:
                 has_content = bool(cust_status or checkin_col or signoff_col or qbr_gen_col or smartsheet_col or extra_rows)
 
                 if has_content:
-                    # Open panel with a unique marker div Streamlit won't collapse
-                    st.markdown("""
-                    <style>
-                    .detail-panel {
-                        background: #0d1f38;
-                        border: 1px solid #1e3a5f;
-                        border-radius: 18px;
-                        padding: 24px 28px 8px 28px;
-                        margin-bottom: 20px;
-                    }
-                    .detail-panel-title {
-                        font-size: 0.7rem;
-                        font-weight: 700;
-                        text-transform: uppercase;
-                        letter-spacing: 2px;
-                        color: #3d6494;
-                        padding-bottom: 12px;
-                        border-bottom: 1px solid #1a3457;
-                        margin-bottom: 4px;
-                    }
-                    </style>
-                    <div class="detail-panel">
-                        <div class="detail-panel-title">Customer Details</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown('<p style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#3d6494;padding-bottom:8px;border-bottom:1px solid #1a3457;margin-bottom:4px;">Customer Details</p>', unsafe_allow_html=True)
 
                     def info_row(icon, label, value_html):
                         st.markdown(f"""<div class="info-row">
