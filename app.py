@@ -710,7 +710,7 @@ def get_logo_base64() -> str:
         "Accept": "application/vnd.github.v3+json",
     }
     # Try common logo locations
-    for logo_path in ["md-logo.png", "md-logo.png", "assets/md-logo.png", "assets/md-logo.png"]:
+    for logo_path in ["Logo.png", "logo.png", "assets/Logo.png", "assets/logo.png"]:
         url = f"https://api.github.com/repos/{repo}/contents/{logo_path}"
         r = requests.get(url, headers=headers)
         if r.status_code == 200:
@@ -722,7 +722,7 @@ logo_b64 = get_logo_base64()
 if logo_b64:
     st.markdown(f"""
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:4px;">
-        <img src="data:image/png;base64,{logo_b64}" style="height:80px;width:auto;object-fit:contain;" />
+        <img src="data:image/png;base64,{logo_b64}" style="height:260px;width:auto;object-fit:contain;" />
         <div class="dashboard-title" style="margin-bottom:0;">Customer Tracking Dashboard</div>
     </div>
     """, unsafe_allow_html=True)
@@ -757,7 +757,7 @@ def link_badge(url) -> str:
 # =========================================================
 # TABS
 # =========================================================
-tabs = st.tabs(["Dashboard", "Customer Discovery"])
+tabs = st.tabs(["Dashboard", "Customer Discovery", "QBR Status"])
 
 # =========================================================
 # DASHBOARD TAB
@@ -1462,3 +1462,262 @@ with tabs[1]:
                     st.session_state[edit_key] = False
                     st.session_state["_persist_code"] = cust_code
                     st.rerun()
+
+
+# =========================================================
+# QBR STATUS TAB
+# =========================================================
+with tabs[2]:
+
+    st.markdown("""
+    <style>
+    .qbr-header {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: #3d6494;
+        margin-bottom: 16px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #1a3457;
+    }
+    .qbr-card {
+        background: #0d1f38;
+        border: 1px solid #1e3a5f;
+        border-radius: 14px;
+        padding: 14px 16px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+    .qbr-card-name {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #e8f0fe;
+        flex: 1;
+    }
+    .qbr-card-am {
+        font-size: 0.75rem;
+        color: #4a6fa5;
+        margin-top: 2px;
+    }
+    .qbr-badge-done {
+        background: rgba(63,185,80,0.15);
+        border: 1px solid rgba(63,185,80,0.4);
+        color: #3fb950;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 3px 12px;
+        border-radius: 20px;
+        white-space: nowrap;
+    }
+    .qbr-badge-pending {
+        background: rgba(248,81,73,0.12);
+        border: 1px solid rgba(248,81,73,0.35);
+        color: #f85149;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 3px 12px;
+        border-radius: 20px;
+        white-space: nowrap;
+    }
+    .qbr-date {
+        font-size: 0.75rem;
+        color: #58a6ff;
+        white-space: nowrap;
+    }
+    .qbr-stat-box {
+        background: #0d1f38;
+        border: 1px solid #1e3a5f;
+        border-radius: 14px;
+        padding: 18px 20px;
+        text-align: center;
+    }
+    .qbr-stat-num {
+        font-size: 2rem;
+        font-weight: 800;
+        line-height: 1.1;
+    }
+    .qbr-stat-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        color: #4a6fa5;
+        margin-top: 4px;
+    }
+    .tier-section-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #e8f0fe;
+        margin: 20px 0 12px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .tier-pill-1 { background:rgba(255,215,0,0.15); border:1px solid rgba(255,215,0,0.4); color:#ffd700; font-size:0.7rem; font-weight:700; padding:2px 10px; border-radius:20px; }
+    .tier-pill-2 { background:rgba(192,192,192,0.12); border:1px solid rgba(192,192,192,0.4); color:#c0c0c0; font-size:0.7rem; font-weight:700; padding:2px 10px; border-radius:20px; }
+    .tier-pill-3 { background:rgba(205,127,50,0.12); border:1px solid rgba(205,127,50,0.4); color:#cd7f32; font-size:0.7rem; font-weight:700; padding:2px 10px; border-radius:20px; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ── Resolve QBR column ──────────────────────────────────
+    qbr_col = find_col(customer_df, QBR_GEN_CANDIDATES)
+
+    # ── Filters ─────────────────────────────────────────────
+    f1, f2, f3 = st.columns([1, 1, 2])
+
+    with f1:
+        tier_opts = []
+        if tier_col:
+            raw = [x for x in safe_str(customer_df[tier_col]).unique() if x]
+            tier_opts = sorted(raw, key=lambda t: (int(x) if (x := "".join(filter(str.isdigit, t))) else 999, t))
+        sel_tiers = st.multiselect("Tier", tier_opts, key="qbr_tier_filter")
+
+    with f2:
+        am_opts = []
+        if am_col:
+            am_opts = sorted([x for x in safe_str(customer_df[am_col]).unique() if x])
+        sel_ams = st.multiselect("Account Manager", am_opts, key="qbr_am_filter")
+
+    with f3:
+        status_filter = st.radio(
+            "Status",
+            ["All", "✅ Completed", "⏳ Pending"],
+            horizontal=True,
+            key="qbr_status_filter"
+        )
+
+    # ── Apply filters ───────────────────────────────────────
+    qbr_df = customer_df.copy()
+    if sel_tiers and tier_col:
+        qbr_df = qbr_df[safe_str(qbr_df[tier_col]).isin(sel_tiers)]
+    if sel_ams and am_col:
+        qbr_df = qbr_df[safe_str(qbr_df[am_col]).isin(sel_ams)]
+
+    def is_qbr_done(val) -> bool:
+        if val is None or (not isinstance(val, str) and pd.isna(val)):
+            return False
+        s = str(val).strip().lower()
+        if s in ("", "nan", "nat", "false", "0", "0.0", "no"):
+            return False
+        return True
+
+    def qbr_date_str(val) -> str:
+        try:
+            return pd.to_datetime(val).strftime("%b %d, %Y")
+        except Exception:
+            return str(val).strip()
+
+    if qbr_col:
+        qbr_df["_done"] = qbr_df[qbr_col].apply(is_qbr_done)
+    else:
+        qbr_df["_done"] = False
+
+    if status_filter == "✅ Completed":
+        qbr_df = qbr_df[qbr_df["_done"]]
+    elif status_filter == "⏳ Pending":
+        qbr_df = qbr_df[~qbr_df["_done"]]
+
+    # ── Summary KPIs ────────────────────────────────────────
+    total   = len(qbr_df)
+    done    = qbr_df["_done"].sum()
+    pending = total - done
+    pct     = int(done / total * 100) if total > 0 else 0
+
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        st.markdown(f'<div class="qbr-stat-box"><div class="qbr-stat-num" style="color:#e8f0fe;">{total}</div><div class="qbr-stat-label">Total Customers</div></div>', unsafe_allow_html=True)
+    with k2:
+        st.markdown(f'<div class="qbr-stat-box"><div class="qbr-stat-num" style="color:#3fb950;">{int(done)}</div><div class="qbr-stat-label">QBR Completed</div></div>', unsafe_allow_html=True)
+    with k3:
+        st.markdown(f'<div class="qbr-stat-box"><div class="qbr-stat-num" style="color:#f85149;">{pending}</div><div class="qbr-stat-label">QBR Pending</div></div>', unsafe_allow_html=True)
+    with k4:
+        st.markdown(f'<div class="qbr-stat-box"><div class="qbr-stat-num" style="color:#58a6ff;">{pct}%</div><div class="qbr-stat-label">Completion Rate</div></div>', unsafe_allow_html=True)
+
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+    # ── Cards grouped by Tier ───────────────────────────────
+    tier_icon = {"1": "🥇", "2": "🥈", "3": "🥉"}
+    tier_pill = {"1": "tier-pill-1", "2": "tier-pill-2", "3": "tier-pill-3"}
+
+    tiers_present = []
+    if tier_col:
+        all_tiers = sorted(
+            qbr_df[tier_col].dropna().astype(str).str.strip().unique().tolist(),
+            key=lambda t: (int(x) if (x := "".join(filter(str.isdigit, t))) else 999, t)
+        )
+        tiers_present = all_tiers
+
+    if not tiers_present:
+        tiers_present = ["All"]
+
+    for tier in tiers_present:
+        tier_num = "".join(filter(str.isdigit, tier))
+        icon     = tier_icon.get(tier_num, "📋")
+        pill_cls = tier_pill.get(tier_num, "tier-pill-1")
+
+        if tier_col and tier != "All":
+            tier_rows = qbr_df[safe_str(qbr_df[tier_col]) == tier]
+        else:
+            tier_rows = qbr_df
+
+        if tier_rows.empty:
+            continue
+
+        done_count    = tier_rows["_done"].sum()
+        pending_count = len(tier_rows) - done_count
+
+        st.markdown(f"""
+        <div class="tier-section-title">
+            {icon} &nbsp;
+            <span class="{pill_cls}">{tier}</span>
+            &nbsp;
+            <span style="font-size:0.8rem;color:#4a6fa5;font-weight:400;">
+                {int(done_count)} completed &nbsp;·&nbsp; {pending_count} pending
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        left_col, right_col = st.columns(2)
+
+        done_rows    = tier_rows[tier_rows["_done"]].sort_values(name_col) if name_col else tier_rows[tier_rows["_done"]]
+        pending_rows = tier_rows[~tier_rows["_done"]].sort_values(name_col) if name_col else tier_rows[~tier_rows["_done"]]
+
+        with left_col:
+            if not done_rows.empty:
+                st.markdown('<div class="qbr-header">✅ Completed</div>', unsafe_allow_html=True)
+                for _, row in done_rows.iterrows():
+                    cname = str(row.get(name_col, "—")).strip() if name_col else "—"
+                    cam   = str(row.get(am_col, "—")).strip() if am_col else "—"
+                    qdate = qbr_date_str(row.get(qbr_col, "")) if qbr_col else ""
+                    st.markdown(f"""
+                    <div class="qbr-card">
+                        <div>
+                            <div class="qbr-card-name">{cname}</div>
+                            <div class="qbr-card-am">{cam}</div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+                            <span class="qbr-badge-done">✓ Done</span>
+                            <span class="qbr-date">{qdate}</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+        with right_col:
+            if not pending_rows.empty:
+                st.markdown('<div class="qbr-header">⏳ Pending</div>', unsafe_allow_html=True)
+                for _, row in pending_rows.iterrows():
+                    cname = str(row.get(name_col, "—")).strip() if name_col else "—"
+                    cam   = str(row.get(am_col, "—")).strip() if am_col else "—"
+                    st.markdown(f"""
+                    <div class="qbr-card">
+                        <div>
+                            <div class="qbr-card-name">{cname}</div>
+                            <div class="qbr-card-am">{cam}</div>
+                        </div>
+                        <span class="qbr-badge-pending">⏳ Pending</span>
+                    </div>
+                    """, unsafe_allow_html=True)
