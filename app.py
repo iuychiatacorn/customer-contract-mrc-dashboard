@@ -983,9 +983,9 @@ with tabs[1]:
                 # Helper: render TRUE/FALSE as styled badge
                 def bool_badge(val) -> str:
                     s = str(val).strip().lower()
-                    if s in ("true", "yes", "1"):
+                    if s in ("true", "yes", "1", "1.0"):
                         return '<span style="background:rgba(63,185,80,0.15);border:1px solid rgba(63,185,80,0.4);color:#3fb950;font-size:0.8rem;font-weight:700;padding:3px 12px;border-radius:20px;">✓ Yes</span>'
-                    elif s in ("false", "no", "0"):
+                    elif s in ("false", "no", "0", "0.0"):
                         return '<span style="background:rgba(248,81,73,0.12);border:1px solid rgba(248,81,73,0.35);color:#f85149;font-size:0.8rem;font-weight:700;padding:3px 12px;border-radius:20px;">✗ No</span>'
                     return f'<span style="color:#6b8aad;">{val}</span>'
 
