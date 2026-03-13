@@ -878,23 +878,11 @@ with tabs[1]:
     """, unsafe_allow_html=True)
 
     # ── Selectors ───────────────────────────────────────────
-    sel_c1, sel_c2 = st.columns(2)
     selected_code = ""
-    selected_name = ""
 
-    with sel_c1:
-        if code_col:
-            code_options = sorted(customer_df[code_col].dropna().astype(str).unique().tolist())
-            selected_code = st.selectbox("Search by Customer Code", [""] + code_options, key="drilldown_code")
-
-    with sel_c2:
-        if name_col:
-            name_options = sorted(customer_df[name_col].dropna().astype(str).unique().tolist())
-            selected_name = st.selectbox("Search by Customer Name", [""] + name_options, key="drilldown_name")
-            if selected_name and code_col and not selected_code:
-                match = customer_df[safe_str(customer_df[name_col]) == selected_name]
-                if not match.empty:
-                    selected_code = str(match.iloc[0][code_col]).strip()
+    if code_col:
+        code_options = sorted(customer_df[code_col].dropna().astype(str).unique().tolist())
+        selected_code = st.selectbox("Search by Customer Code", [""] + code_options, key="drilldown_code")
 
     # ── Profile ─────────────────────────────────────────────
     if not selected_code or not code_col:
