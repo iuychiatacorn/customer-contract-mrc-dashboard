@@ -982,7 +982,10 @@ with tabs[1]:
                 qbr_gen_col    = find_col(customer_df, QBR_GEN_CANDIDATES)
                 special_cols   = {checkin_col, smartsheet_col, signoff_col, qbr_gen_col} - {None}
 
-                shown_cols = {code_col, name_col, tier_col, am_col, mrr_col, exp_col, status_col} | special_cols
+                EXCLUDE_COLS = {c for c in customer_df.columns if any(
+                    kw in c.lower() for kw in ["seat", "seats", "license", "qty", "quantity"]
+                )}
+                shown_cols = {code_col, name_col, tier_col, am_col, mrr_col, exp_col, status_col} | special_cols | EXCLUDE_COLS
 
                 # Helper: render TRUE/FALSE as styled badge
                 def bool_badge(val) -> str:
@@ -1017,7 +1020,12 @@ with tabs[1]:
                     if pd.isna(val) or str(val).strip() in ("", "nan", "NaT"):
                         continue
                     try:
-                        val = pd.to_datetime(val).strftime("%b %d, %Y")
+                        # Skip plain numbers — they'd parse as Unix epoch (Jan 1 1970)
+                        if not isinstance(val, (int, float)):
+                            parsed_dt = pd.to_datetime(val, errors="raise")
+                            val = parsed_dt.strftime("%b %d, %Y")
+                        else:
+                            raise ValueError("numeric, skip date parse")
                     except Exception:
                         try:
                             fval = float(str(val).replace("$","").replace(",",""))
