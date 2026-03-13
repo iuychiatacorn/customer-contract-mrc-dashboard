@@ -1049,7 +1049,7 @@ with tabs[1]:
     </style>
     """, unsafe_allow_html=True)
 
-    sel_col, edit_col, refresh_col = st.columns([8, 0.6, 0.6])
+    sel_col, edit_col, refresh_col = st.columns([8, 0.3, 0.3])
 
     with sel_col:
         if code_col:
