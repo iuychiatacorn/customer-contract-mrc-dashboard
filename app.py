@@ -1941,9 +1941,6 @@ with tabs[3]:
 
         st.markdown('<div class="rom-section-title">📋 Estimate Line Items</div>', unsafe_allow_html=True)
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-
-        # Remove controls below the table
-        item_labels = [f"#{i+1} — {item['device']}" for i, item in enumerate(st.session_state["rom_items"])]
         st.markdown("""
         <style>
         div[data-testid="column"]:has(button[kind="secondary"]) + div[data-testid="column"] {
@@ -1951,19 +1948,19 @@ with tabs[3]:
         }
         </style>
         """, unsafe_allow_html=True)
-        rm1, rb1, rb2 = st.columns([10, 0.6, 1.2])
+        item_labels = [f"#{i+1} — {item['device']}" for i, item in enumerate(st.session_state["rom_items"])]
+        item_labels_with_clear = item_labels + ["🗑 Clear All"]
+        rm1, rb1 = st.columns([10, 0.6])
         with rm1:
-            remove_sel = st.selectbox("Select item to remove", item_labels, key="rom_remove_select")
-            remove_idx = item_labels.index(remove_sel) if remove_sel in item_labels else 0
+            remove_sel = st.selectbox("Select item to remove", item_labels_with_clear, key="rom_remove_select")
+            remove_idx = item_labels_with_clear.index(remove_sel) if remove_sel in item_labels_with_clear else 0
         with rb1:
             st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
             if st.button("🗑", key="rom_remove_btn", use_container_width=True, help="Remove selected item"):
-                st.session_state["rom_items"].pop(remove_idx)
-                st.rerun()
-        with rb2:
-            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-            if st.button("Clear All", key="rom_clear_all", use_container_width=True):
-                st.session_state["rom_items"] = []
+                if remove_sel == "🗑 Clear All":
+                    st.session_state["rom_items"] = []
+                else:
+                    st.session_state["rom_items"].pop(remove_idx)
                 st.rerun()
 
         kpi_s = "background:#0d1f38;border:1px solid #1e3a5f;border-radius:12px;padding:16px;text-align:center;margin-top:8px;"
