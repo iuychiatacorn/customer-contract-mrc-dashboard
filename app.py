@@ -758,7 +758,7 @@ def link_badge(url) -> str:
 # =========================================================
 # TABS
 # =========================================================
-tabs = st.tabs(["Dashboard", "Customer Discovery", "QBR Status"])
+tabs = st.tabs(["Dashboard", "Customer Discovery", "QBR Status", "ROM Calculator"])
 
 # =========================================================
 # DASHBOARD TAB
@@ -1790,3 +1790,167 @@ with tabs[2]:
                         <span class="qbr-badge-pending">⏳ Pending</span>
                     </div>
                     """, unsafe_allow_html=True)
+
+
+# =========================================================
+# ROM CALCULATOR TAB
+# =========================================================
+with tabs[3]:
+
+    st.markdown("""
+    <style>
+    .rom-title { font-size:1.4rem; font-weight:800; color:#e8f0fe; margin-bottom:4px; }
+    .rom-subtitle { font-size:0.8rem; color:#4a6fa5; margin-bottom:24px; }
+    .rom-section { background:#0d1f38; border:1px solid #1e3a5f; border-radius:16px; padding:20px 24px; margin-bottom:16px; }
+    .rom-section-title { font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:#3d6494; margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid #1a3457; }
+    .rom-rate-badge { display:inline-block; font-size:0.78rem; font-weight:700; padding:3px 12px; border-radius:20px; margin-top:6px; border:1px solid rgba(88,166,255,0.3); background:rgba(88,166,255,0.12); color:#58a6ff; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="rom-title">ROM Calculator</div>', unsafe_allow_html=True)
+    st.markdown('<div class="rom-subtitle">Rough Order of Magnitude — select a customer, add devices, get an instant estimate</div>', unsafe_allow_html=True)
+
+    DEVICE_CATALOG = [
+        {"device": "Workstation",                     "hours": 1,    "hw_cost": 300.0,     "license": 2500.0},
+        {"device": "Host Server",                     "hours": None, "hw_cost": None,       "license": None},
+        {"device": "SAN",                             "hours": None, "hw_cost": None,       "license": None},
+        {"device": "SCALE Host Large",                "hours": 40,   "hw_cost": 115000.0,  "license": 75000.0},
+        {"device": "SCALE Host Medium",               "hours": 30,   "hw_cost": 61000.0,   "license": 48500.0},
+        {"device": "SCALE Host Small",                "hours": 20,   "hw_cost": 7000.0,    "license": 22000.0},
+        {"device": "VM Migrations",                   "hours": 4,    "hw_cost": None,       "license": None},
+        {"device": "PC Replacement",                  "hours": None, "hw_cost": None,       "license": None},
+        {"device": "Large Firewalls",                 "hours": 40,   "hw_cost": 6100.0,    "license": 18300.0},
+        {"device": "HA Firewall",                     "hours": 10,   "hw_cost": 6100.0,    "license": None},
+        {"device": "Med Firewalls",                   "hours": 30,   "hw_cost": 2100.0,    "license": 6100.0},
+        {"device": "Small Firewalls",                 "hours": 10,   "hw_cost": 600.0,     "license": 1800.0},
+        {"device": "Switches (48 Port)",              "hours": 10,   "hw_cost": 4500.0,    "license": 660.0},
+        {"device": "24 Port Switch",                  "hours": 10,   "hw_cost": 3000.0,    "license": 400.0},
+        {"device": "8 Port Switch",                   "hours": 6,    "hw_cost": 700.0,     "license": 150.0},
+        {"device": "Large UPS",                       "hours": 5,    "hw_cost": 3000.0,    "license": None},
+        {"device": "Medium UPS",                      "hours": 5,    "hw_cost": 2100.0,    "license": None},
+        {"device": "Smaller UPS",                     "hours": 5,    "hw_cost": 1300.0,    "license": None},
+        {"device": "QNAP Large (12 Bay 120TB)",       "hours": 8,    "hw_cost": 3700.0,    "license": None},
+        {"device": "QNAP Medium (8 Bay 80TB)",        "hours": 8,    "hw_cost": 2500.0,    "license": None},
+        {"device": "QNAP Small (4 Bay 40TB)",         "hours": 8,    "hw_cost": 1450.0,    "license": None},
+        {"device": "QNAP Hard Drives (20TB)",         "hours": 0.25, "hw_cost": 525.0,     "license": None},
+        {"device": "WAP",                             "hours": 3,    "hw_cost": 400.0,     "license": 500.0},
+        {"device": "Meraki Dashboard",                "hours": 6,    "hw_cost": 0.0,        "license": 0.0},
+        {"device": "(New) VM",                        "hours": None, "hw_cost": None,       "license": None},
+        {"device": "Per VM for ASR",                  "hours": 5,    "hw_cost": None,       "license": None},
+        {"device": "Office 365 Migration",            "hours": 40,   "hw_cost": 0.0,        "license": 0.0},
+        {"device": "Per Mailbox 365",                 "hours": 1,    "hw_cost": None,       "license": None},
+        {"device": "Network/Server Rack Cables",      "hours": None, "hw_cost": None,       "license": None},
+        {"device": "Unmanaged Switch (shipped)",      "hours": None, "hw_cost": None,       "license": None},
+        {"device": "Unmanaged Switch (Acorn deploy)", "hours": None, "hw_cost": None,       "license": None},
+        {"device": "VMware",                          "hours": None, "hw_cost": None,       "license": None},
+    ]
+    DEVICE_NAMES = [d["device"] for d in DEVICE_CATALOG]
+    DEVICE_MAP   = {d["device"]: d for d in DEVICE_CATALOG}
+
+    def get_project_rate(sheets, customer_code):
+        for sheet_name, df in sheets.items():
+            if "project" in sheet_name.lower() and "rate" in sheet_name.lower():
+                c_col = find_col(df, CODE_CANDIDATES)
+                r_col = find_col(df, ["Project Rate", "Project rate", "Rate", "Hourly Rate", "Labor Rate"])
+                if c_col and r_col:
+                    match = df[safe_str(df[c_col]) == customer_code]
+                    if not match.empty:
+                        val = to_numeric(match[[r_col]].iloc[0]).iloc[0]
+                        return float(val) if pd.notna(val) else None
+        return None
+
+    if "rom_items" not in st.session_state:
+        st.session_state["rom_items"] = []
+
+    top_left, top_right = st.columns([1, 1])
+
+    with top_left:
+        st.markdown('<div class="rom-section"><div class="rom-section-title">Customer</div>', unsafe_allow_html=True)
+        code_options_rom = [""] + sorted(customer_df[code_col].dropna().astype(str).unique().tolist()) if code_col else [""]
+        rom_customer = st.selectbox("Customer Code", code_options_rom, key="rom_customer_code")
+        project_rate = None
+        cust_name_rom = ""
+        if rom_customer:
+            project_rate = get_project_rate(sheets, rom_customer)
+            if name_col:
+                match = customer_df[safe_str(customer_df[code_col]) == rom_customer]
+                if not match.empty:
+                    cust_name_rom = str(match.iloc[0].get(name_col, "")).strip()
+            rate_display = f"${project_rate:,.0f} / hr" if project_rate else "Rate not found"
+            rate_color   = "#58a6ff" if project_rate else "#f85149"
+            st.markdown(f'<div style="margin-top:8px;"><span style="font-size:0.85rem;color:#4a6fa5;">Customer: </span><span style="font-size:0.9rem;font-weight:700;color:#e8f0fe;">{cust_name_rom}</span><br/><span class="rom-rate-badge" style="color:{rate_color};border-color:{rate_color}40;background:{rate_color}18;">🕐 Project Rate: {rate_display}</span></div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with top_right:
+        st.markdown('<div class="rom-section"><div class="rom-section-title">Add Device</div>', unsafe_allow_html=True)
+        d1, d2 = st.columns([3, 1])
+        with d1:
+            selected_device = st.selectbox("Device Type", DEVICE_NAMES, key="rom_device_select")
+        with d2:
+            qty = st.number_input("Qty", min_value=1, value=1, step=1, key="rom_qty")
+        override_rate = st.number_input("Override hourly rate (leave 0 to use project rate)", min_value=0.0, value=0.0, step=5.0, format="%.2f", key="rom_rate_override")
+        if st.button("➕ Add to Estimate", key="rom_add_btn", use_container_width=True):
+            dev_info = DEVICE_MAP[selected_device]
+            st.session_state["rom_items"].append({
+                "device": selected_device, "qty": qty,
+                "hours": dev_info["hours"], "hw_cost": dev_info["hw_cost"],
+                "license": dev_info["license"],
+                "rate_override": override_rate if override_rate > 0 else None,
+            })
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    if st.session_state["rom_items"]:
+        effective_rate = project_rate or 0.0
+        rows = []
+        grand_labor = grand_hw = grand_lic = grand_total = 0.0
+
+        for i, item in enumerate(st.session_state["rom_items"]):
+            rate   = item["rate_override"] if item["rate_override"] else effective_rate
+            hours  = (item["hours"] or 0) * item["qty"]
+            hw     = (item["hw_cost"] or 0) * item["qty"]
+            lic    = (item["license"] or 0) * item["qty"]
+            labor  = hours * rate
+            total  = labor + hw + lic
+            grand_labor += labor; grand_hw += hw; grand_lic += lic; grand_total += total
+            rows.append({
+                "#": i + 1,
+                "Device": item["device"],
+                "Qty": item["qty"],
+                "Hours ea.": item["hours"] if item["hours"] is not None else "—",
+                "Total Hrs": hours if item["hours"] is not None else "—",
+                "Rate": f"${rate:,.0f}/hr" if rate else "—",
+                "Labor": f"${labor:,.2f}" if rate else "—",
+                "HW Cost": f"${hw:,.2f}" if item["hw_cost"] is not None else "—",
+                "License": f"${lic:,.2f}" if item["license"] is not None else "—",
+                "Line Total": f"${total:,.2f}",
+            })
+
+        st.markdown('<div class="rom-section"><div class="rom-section-title">Estimate Line Items</div>', unsafe_allow_html=True)
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+        rm_label_cols = st.columns(min(len(st.session_state["rom_items"]), 8))
+        for i, item in enumerate(st.session_state["rom_items"]):
+            with rm_label_cols[i % len(rm_label_cols)]:
+                if st.button(f"🗑 #{i+1} {item['device'][:12]}", key=f"rom_remove_{i}"):
+                    st.session_state["rom_items"].pop(i)
+                    st.rerun()
+
+        if st.button("🗑 Clear All Items", key="rom_clear_all"):
+            st.session_state["rom_items"] = []
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        kpi_s = "background:#0d1f38;border:1px solid #1e3a5f;border-radius:12px;padding:16px;text-align:center;margin-top:8px;"
+        lbl_s = "font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#4a6fa5;margin-bottom:6px;"
+        t1, t2, t3, t4 = st.columns(4)
+        with t1:
+            st.markdown(f'<div style="{kpi_s}"><div style="{lbl_s}">Total Labor</div><div style="font-size:1.2rem;font-weight:800;color:#58a6ff;">${grand_labor:,.2f}</div></div>', unsafe_allow_html=True)
+        with t2:
+            st.markdown(f'<div style="{kpi_s}"><div style="{lbl_s}">Total HW Cost</div><div style="font-size:1.2rem;font-weight:800;color:#e3b341;">${grand_hw:,.2f}</div></div>', unsafe_allow_html=True)
+        with t3:
+            st.markdown(f'<div style="{kpi_s}"><div style="{lbl_s}">Total License</div><div style="font-size:1.2rem;font-weight:800;color:#a371f7;">${grand_lic:,.2f}</div></div>', unsafe_allow_html=True)
+        with t4:
+            st.markdown(f'<div style="{kpi_s}"><div style="{lbl_s}">Grand Total</div><div style="font-size:1.4rem;font-weight:900;color:#3fb950;">${grand_total:,.2f}</div></div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div style="text-align:center;padding:60px 20px;color:#2d4a6e;"><div style="font-size:3rem;margin-bottom:12px;">🖩</div><div style="font-size:1.1rem;font-weight:600;color:#3d6494;">Select a customer and add devices to build your estimate</div></div>', unsafe_allow_html=True)
