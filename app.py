@@ -1892,7 +1892,7 @@ with tabs[3]:
 
     # ── Add Device row ────────────────────────────────────────
     st.markdown('<div class="rom-section-title">➕ Add Device</div>', unsafe_allow_html=True)
-    d1, d2, d3, d4 = st.columns([4, 1.2, 1.2, 1.2])
+    d1, d2, d3, d4 = st.columns([5, 1.2, 1.2, 0.6])
     with d1:
         selected_device = st.selectbox("Device Type", DEVICE_NAMES, key="rom_device_select")
     with d2:
@@ -1901,7 +1901,7 @@ with tabs[3]:
         override_rate = st.number_input("Rate $", min_value=0.0, value=0.0, step=5.0, format="%.0f", key="rom_rate_override", help="Override hourly rate — leave 0 to use project rate")
     with d4:
         st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-        if st.button("➕ Add", key="rom_add_btn", use_container_width=True):
+        if st.button("➕", key="rom_add_btn", use_container_width=True, help="Add to Estimate"):
             dev_info = DEVICE_MAP[selected_device]
             st.session_state["rom_items"].append({
                 "device": selected_device, "qty": qty,
@@ -1944,18 +1944,18 @@ with tabs[3]:
 
         # Remove controls below the table
         item_labels = [f"#{i+1} — {item['device']}" for i, item in enumerate(st.session_state["rom_items"])]
-        rm1, rm2, rm3 = st.columns([3, 1.2, 1.2])
+        rm1, rm2, rm3 = st.columns([3, 0.6, 1.5])
         with rm1:
             remove_sel = st.selectbox("Select item to remove", item_labels, key="rom_remove_select")
             remove_idx = item_labels.index(remove_sel) if remove_sel in item_labels else 0
         with rm2:
             st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-            if st.button("🗑 Remove", key="rom_remove_btn", use_container_width=True):
+            if st.button("🗑", key="rom_remove_btn", use_container_width=True, help="Remove selected item"):
                 st.session_state["rom_items"].pop(remove_idx)
                 st.rerun()
         with rm3:
             st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-            if st.button("🗑 Clear All", key="rom_clear_all", use_container_width=True):
+            if st.button("🗑  Clear All", key="rom_clear_all", use_container_width=True):
                 st.session_state["rom_items"] = []
                 st.rerun()
 
