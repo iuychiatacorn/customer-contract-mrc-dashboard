@@ -1944,21 +1944,20 @@ with tabs[3]:
 
         # Remove controls below the table
         item_labels = [f"#{i+1} — {item['device']}" for i, item in enumerate(st.session_state["rom_items"])]
-        rm1, rm_group = st.columns([5, 1.5])
+        rm1, rb1, rb2 = st.columns([5, 0.8, 1.8])
         with rm1:
             remove_sel = st.selectbox("Select item to remove", item_labels, key="rom_remove_select")
             remove_idx = item_labels.index(remove_sel) if remove_sel in item_labels else 0
-        with rm_group:
+        with rb1:
             st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-            rb1, rb2 = st.columns([1, 2])
-            with rb1:
-                if st.button("🗑", key="rom_remove_btn", use_container_width=True, help="Remove selected item"):
-                    st.session_state["rom_items"].pop(remove_idx)
-                    st.rerun()
-            with rb2:
-                if st.button("🗑 Clear All", key="rom_clear_all", use_container_width=True):
-                    st.session_state["rom_items"] = []
-                    st.rerun()
+            if st.button("🗑", key="rom_remove_btn", use_container_width=True, help="Remove selected item"):
+                st.session_state["rom_items"].pop(remove_idx)
+                st.rerun()
+        with rb2:
+            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+            if st.button("🗑 Clear All", key="rom_clear_all", use_container_width=True):
+                st.session_state["rom_items"] = []
+                st.rerun()
 
         kpi_s = "background:#0d1f38;border:1px solid #1e3a5f;border-radius:12px;padding:16px;text-align:center;margin-top:8px;"
         lbl_s = "font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#4a6fa5;margin-bottom:6px;"
