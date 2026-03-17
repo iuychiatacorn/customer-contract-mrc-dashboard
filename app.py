@@ -1900,7 +1900,7 @@ with tabs[3]:
         override_rate = st.number_input("Rate $", min_value=0.0, value=0.0, step=5.0, format="%.0f", key="rom_rate_override", help="Override hourly rate — leave 0 to use project rate")
     with d4:
         st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-        if st.button("➕  Add to Estimate", key="rom_add_btn", use_container_width=True):
+        if st.button("➕ Add", key="rom_add_btn", use_container_width=True):
             dev_info = DEVICE_MAP[selected_device]
             st.session_state["rom_items"].append({
                 "device": selected_device, "qty": qty,
@@ -1949,12 +1949,12 @@ with tabs[3]:
             remove_idx = item_labels.index(remove_sel) if remove_sel in item_labels else 0
         with rm2:
             st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-            if st.button("🗑  Remove Selected", key="rom_remove_btn", use_container_width=True):
+            if st.button("🗑 Remove", key="rom_remove_btn", use_container_width=True):
                 st.session_state["rom_items"].pop(remove_idx)
                 st.rerun()
         with rm3:
             st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-            if st.button("🗑  Clear All Items", key="rom_clear_all", use_container_width=True):
+            if st.button("🗑 Clear All", key="rom_clear_all", use_container_width=True):
                 st.session_state["rom_items"] = []
                 st.rerun()
 
