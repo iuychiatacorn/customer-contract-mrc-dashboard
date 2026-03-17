@@ -1880,11 +1880,9 @@ with tabs[3]:
 
     st.markdown("""
     <style>
-    /* Prevent all ROM buttons from wrapping and add padding */
-    div[data-testid="stButton"] button {
+    /* ROM tab buttons - prevent text wrap only */
+    section[data-testid="stMain"] div[data-testid="stButton"] button {
         white-space: nowrap !important;
-        padding: 0.45rem 1.2rem !important;
-        font-size: 0.9rem !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -1893,7 +1891,7 @@ with tabs[3]:
 
     # ── Add Device row ────────────────────────────────────────
     st.markdown('<div class="rom-section-title">➕ Add Device</div>', unsafe_allow_html=True)
-    d1, d2, d3, d4 = st.columns([5, 1, 1, 2])
+    d1, d2, d3, d4 = st.columns([4, 1, 1, 1.8])
     with d1:
         selected_device = st.selectbox("Device Type", DEVICE_NAMES, key="rom_device_select")
     with d2:
@@ -1945,7 +1943,7 @@ with tabs[3]:
 
         # Remove controls below the table
         item_labels = [f"#{i+1} — {item['device']}" for i, item in enumerate(st.session_state["rom_items"])]
-        rm1, rm2, rm3 = st.columns([3, 1, 1])
+        rm1, rm2, rm3 = st.columns([3, 1.5, 1.5])
         with rm1:
             remove_sel = st.selectbox("Select item to remove", item_labels, key="rom_remove_select")
             remove_idx = item_labels.index(remove_sel) if remove_sel in item_labels else 0
