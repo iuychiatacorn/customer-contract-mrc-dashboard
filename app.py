@@ -1862,35 +1862,36 @@ with tabs[3]:
     if "rom_items" not in st.session_state:
         st.session_state["rom_items"] = []
 
-    # ── Customer + Add Device side by side ───────────────────
-    top_left, top_right = st.columns([1, 1])
+    # ── Resolve customer + project rate BEFORE columns ───────
+    code_options_rom = [""] + sorted(customer_df[code_col].dropna().astype(str).unique().tolist()) if code_col else [""]
+    rom_customer = st.selectbox("Customer Code", code_options_rom, key="rom_customer_code")
 
-    with top_left:
-        st.markdown('<div class="rom-section-title">🏢 Customer</div>', unsafe_allow_html=True)
-        code_options_rom = [""] + sorted(customer_df[code_col].dropna().astype(str).unique().tolist()) if code_col else [""]
-        rom_customer = st.selectbox("Customer Code", code_options_rom, key="rom_customer_code")
-        project_rate = None
-        cust_name_rom = ""
-        if rom_customer:
-            project_rate = get_project_rate(sheets, rom_customer)
-            if name_col:
-                match = customer_df[safe_str(customer_df[code_col]) == rom_customer]
-                if not match.empty:
-                    cust_name_rom = str(match.iloc[0].get(name_col, "")).strip()
-            rate_display = f"${project_rate:,.0f} / hr" if project_rate else "Rate not found"
-            rate_color   = "#58a6ff" if project_rate else "#f85149"
-            st.markdown(f'<span style="font-size:0.85rem;color:#4a6fa5;">Customer: </span><strong style="color:#e8f0fe;">{cust_name_rom}</strong>&nbsp;&nbsp;<span style="display:inline-block;font-size:0.78rem;font-weight:700;padding:2px 12px;border-radius:20px;border:1px solid {rate_color}40;background:{rate_color}18;color:{rate_color};">🕐 {rate_display}</span>', unsafe_allow_html=True)
+    project_rate  = None
+    cust_name_rom = ""
+    if rom_customer:
+        project_rate = get_project_rate(sheets, rom_customer)
+        if name_col:
+            match = customer_df[safe_str(customer_df[code_col]) == rom_customer]
+            if not match.empty:
+                cust_name_rom = str(match.iloc[0].get(name_col, "")).strip()
+        rate_display = f"${project_rate:,.0f} / hr" if project_rate else "Rate not found"
+        rate_color   = "#58a6ff" if project_rate else "#f85149"
+        st.markdown(f'<span style="font-size:0.85rem;color:#4a6fa5;">Customer: </span><strong style="color:#e8f0fe;">{cust_name_rom}</strong>&nbsp;&nbsp;<span style="display:inline-block;font-size:0.78rem;font-weight:700;padding:2px 12px;border-radius:20px;border:1px solid {rate_color}40;background:{rate_color}18;color:{rate_color};">🕐 {rate_display}</span>', unsafe_allow_html=True)
 
-    with top_right:
-        st.markdown('<div class="rom-section-title">➕ Add Device</div>', unsafe_allow_html=True)
-        d1, d2, d3 = st.columns([4, 1, 1])
-        with d1:
-            selected_device = st.selectbox("Device Type", DEVICE_NAMES, key="rom_device_select")
-        with d2:
-            qty = st.number_input("Qty", min_value=1, value=1, step=1, key="rom_qty")
-        with d3:
-            override_rate = st.number_input("Rate $", min_value=0.0, value=0.0, step=5.0, format="%.0f", key="rom_rate_override", help="Override hourly rate — leave 0 to use project rate")
-        if st.button("➕  Add to Estimate", key="rom_add_btn"):
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+    # ── Add Device row ────────────────────────────────────────
+    st.markdown('<div class="rom-section-title">➕ Add Device</div>', unsafe_allow_html=True)
+    d1, d2, d3, d4 = st.columns([4, 1, 1, 1])
+    with d1:
+        selected_device = st.selectbox("Device Type", DEVICE_NAMES, key="rom_device_select")
+    with d2:
+        qty = st.number_input("Qty", min_value=1, value=1, step=1, key="rom_qty")
+    with d3:
+        override_rate = st.number_input("Rate $", min_value=0.0, value=0.0, step=5.0, format="%.0f", key="rom_rate_override", help="Override hourly rate — leave 0 to use project rate")
+    with d4:
+        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+        if st.button("➕ Add", key="rom_add_btn", use_container_width=True):
             dev_info = DEVICE_MAP[selected_device]
             st.session_state["rom_items"].append({
                 "device": selected_device, "qty": qty,
@@ -1931,19 +1932,18 @@ with tabs[3]:
         st.markdown('<div class="rom-section-title">📋 Estimate Line Items</div>', unsafe_allow_html=True)
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-        # Remove buttons — one per item, compact, inline
-        st.markdown('<div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px 0;">', unsafe_allow_html=True)
-        btn_cols = st.columns(len(st.session_state["rom_items"]) + 1)
+        # Remove buttons + Clear All on one row
+        n = len(st.session_state["rom_items"])
+        btn_cols = st.columns(n + 1)
         for i, item in enumerate(st.session_state["rom_items"]):
             with btn_cols[i]:
                 if st.button(f"🗑 #{i+1}", key=f"rom_remove_{i}", help=f"Remove: {item['device']}"):
                     st.session_state["rom_items"].pop(i)
                     st.rerun()
-        with btn_cols[-1]:
+        with btn_cols[n]:
             if st.button("🗑 Clear All", key="rom_clear_all"):
                 st.session_state["rom_items"] = []
                 st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
         kpi_s = "background:#0d1f38;border:1px solid #1e3a5f;border-radius:12px;padding:16px;text-align:center;margin-top:8px;"
         lbl_s = "font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#4a6fa5;margin-bottom:6px;"
