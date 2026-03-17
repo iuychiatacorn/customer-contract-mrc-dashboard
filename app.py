@@ -1880,10 +1880,11 @@ with tabs[3]:
 
     st.markdown("""
     <style>
-    /* Prevent all ROM buttons from wrapping */
+    /* Prevent all ROM buttons from wrapping and add padding */
     div[data-testid="stButton"] button {
         white-space: nowrap !important;
-        min-width: fit-content !important;
+        padding: 0.45rem 1.2rem !important;
+        font-size: 0.9rem !important;
     }
     </style>
     """, unsafe_allow_html=True)
