@@ -1880,10 +1880,10 @@ with tabs[3]:
 
     st.markdown("""
     <style>
-    /* Make ROM action buttons properly sized */
-    [data-testid="stButton"][aria-label="rom_add_btn"] button,
-    div[data-testid="column"] [data-testid="stButton"] button {
-        white-space: nowrap;
+    /* Prevent all ROM buttons from wrapping */
+    div[data-testid="stButton"] button {
+        white-space: nowrap !important;
+        min-width: fit-content !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -1892,7 +1892,7 @@ with tabs[3]:
 
     # ── Add Device row ────────────────────────────────────────
     st.markdown('<div class="rom-section-title">➕ Add Device</div>', unsafe_allow_html=True)
-    d1, d2, d3, d4 = st.columns([4, 1, 1, 1])
+    d1, d2, d3, d4 = st.columns([5, 1, 1, 2])
     with d1:
         selected_device = st.selectbox("Device Type", DEVICE_NAMES, key="rom_device_select")
     with d2:
@@ -1901,7 +1901,7 @@ with tabs[3]:
         override_rate = st.number_input("Rate $", min_value=0.0, value=0.0, step=5.0, format="%.0f", key="rom_rate_override", help="Override hourly rate — leave 0 to use project rate")
     with d4:
         st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-        if st.button("➕ Add to Estimate", key="rom_add_btn", use_container_width=True):
+        if st.button("➕  Add to Estimate", key="rom_add_btn", use_container_width=True):
             dev_info = DEVICE_MAP[selected_device]
             st.session_state["rom_items"].append({
                 "device": selected_device, "qty": qty,
@@ -1942,23 +1942,20 @@ with tabs[3]:
         st.markdown('<div class="rom-section-title">📋 Estimate Line Items</div>', unsafe_allow_html=True)
 
         # Table + inline remove controls side by side
-        tbl_col, rm_col = st.columns([5, 1])
+        tbl_col, rm_col = st.columns([5, 2])
         with tbl_col:
             st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
         with rm_col:
             st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-            item_labels = [f"#{i+1} — {item['device'][:20]}" for i, item in enumerate(st.session_state["rom_items"])]
-            remove_sel = st.selectbox("Remove item", item_labels, key="rom_remove_select", label_visibility="collapsed")
+            item_labels = [f"#{i+1} — {item['device'][:22]}" for i, item in enumerate(st.session_state["rom_items"])]
+            remove_sel = st.selectbox("Select item to remove", item_labels, key="rom_remove_select")
             remove_idx = item_labels.index(remove_sel) if remove_sel in item_labels else 0
-            rc1, rc2 = st.columns(2)
-            with rc1:
-                if st.button("🗑 Remove", key="rom_remove_btn", use_container_width=True):
-                    st.session_state["rom_items"].pop(remove_idx)
-                    st.rerun()
-            with rc2:
-                if st.button("🗑 Clear All", key="rom_clear_all", use_container_width=True):
-                    st.session_state["rom_items"] = []
-                    st.rerun()
+            if st.button("🗑  Remove Selected", key="rom_remove_btn", use_container_width=True):
+                st.session_state["rom_items"].pop(remove_idx)
+                st.rerun()
+            if st.button("🗑  Clear All Items", key="rom_clear_all", use_container_width=True):
+                st.session_state["rom_items"] = []
+                st.rerun()
 
         kpi_s = "background:#0d1f38;border:1px solid #1e3a5f;border-radius:12px;padding:16px;text-align:center;margin-top:8px;"
         lbl_s = "font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#4a6fa5;margin-bottom:6px;"
