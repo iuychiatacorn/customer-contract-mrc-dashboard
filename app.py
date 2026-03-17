@@ -1940,19 +1940,21 @@ with tabs[3]:
             })
 
         st.markdown('<div class="rom-section-title">📋 Estimate Line Items</div>', unsafe_allow_html=True)
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-        # Table + inline remove controls side by side
-        tbl_col, rm_col = st.columns([5, 2])
-        with tbl_col:
-            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-        with rm_col:
-            st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-            item_labels = [f"#{i+1} — {item['device'][:22]}" for i, item in enumerate(st.session_state["rom_items"])]
+        # Remove controls below the table
+        item_labels = [f"#{i+1} — {item['device']}" for i, item in enumerate(st.session_state["rom_items"])]
+        rm1, rm2, rm3 = st.columns([3, 1, 1])
+        with rm1:
             remove_sel = st.selectbox("Select item to remove", item_labels, key="rom_remove_select")
             remove_idx = item_labels.index(remove_sel) if remove_sel in item_labels else 0
+        with rm2:
+            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
             if st.button("🗑  Remove Selected", key="rom_remove_btn", use_container_width=True):
                 st.session_state["rom_items"].pop(remove_idx)
                 st.rerun()
+        with rm3:
+            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
             if st.button("🗑  Clear All Items", key="rom_clear_all", use_container_width=True):
                 st.session_state["rom_items"] = []
                 st.rerun()
