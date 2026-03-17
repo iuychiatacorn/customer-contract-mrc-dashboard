@@ -1944,7 +1944,7 @@ with tabs[3]:
 
         # Remove controls below the table
         item_labels = [f"#{i+1} — {item['device']}" for i, item in enumerate(st.session_state["rom_items"])]
-        rm1, rb1, rb2 = st.columns([5, 1, 1])
+        rm1, rb1, rb2 = st.columns([6, 0.5, 1])
         with rm1:
             remove_sel = st.selectbox("Select item to remove", item_labels, key="rom_remove_select")
             remove_idx = item_labels.index(remove_sel) if remove_sel in item_labels else 0
