@@ -411,7 +411,13 @@ def save_row_to_github(
     idx = target_df[mask].index[0]
     for col, val in updated_fields.items():
         if col in target_df.columns:
-            target_df.at[idx, col] = val
+            try:
+                # Convert column to object dtype first to accept any value type
+                target_df[col] = target_df[col].astype(object)
+                target_df.at[idx, col] = val
+            except Exception:
+                target_df[col] = target_df[col].astype(str)
+                target_df.at[idx, col] = str(val)
 
     all_dfs[sheet_name] = target_df
 
@@ -1504,6 +1510,29 @@ with tabs[1]:
                                     form_vals[col] = st.checkbox(col, value=cur_bool, key=f"fe_{cust_code}_{col}")
 
                     st.markdown("")
+                    st.markdown("---")
+                    st.markdown('<p style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#3d6494;margin-bottom:8px;">💰 Project Rate</p>', unsafe_allow_html=True)
+                    # Look up current project rate for this customer
+                    pr_sheet_name, pr_col_name, cur_project_rate = None, None, None
+                    for sn, sdf in sheets.items():
+                        if "project" in sn.lower() and "rate" in sn.lower():
+                            pc = find_col(sdf, CODE_CANDIDATES)
+                            rc = find_col(sdf, ["Project Rate", "Project rate", "Rate", "Hourly Rate", "Labor Rate"])
+                            if pc and rc:
+                                match = sdf[safe_str(sdf[pc]) == cust_code]
+                                if not match.empty:
+                                    pr_sheet_name = sn
+                                    pr_col_name   = rc
+                                    val = to_numeric(match[[rc]].iloc[0]).iloc[0]
+                                    cur_project_rate = float(val) if pd.notna(val) else 0.0
+                    pr_default = cur_project_rate or 0.0
+                    new_project_rate = st.number_input(
+                        f"Project Rate ($/hr){' — from ' + pr_sheet_name if pr_sheet_name else ' — sheet not found'}",
+                        min_value=0.0, value=pr_default, step=5.0, format="%.2f",
+                        key=f"fe_{cust_code}_project_rate"
+                    )
+
+                    st.markdown("")
                     save_col, cancel_col, _ = st.columns([1, 1, 3])
                     with save_col:
                         submitted = st.form_submit_button("💾 Save Changes", type="primary")
@@ -1518,6 +1547,16 @@ with tabs[1]:
                             customer_code=cust_code,
                             updated_fields=form_vals
                         )
+                        # Also save project rate if the sheet was found
+                        if ok and pr_sheet_name and pr_col_name and new_project_rate != pr_default:
+                            ok2, msg2 = save_row_to_github(
+                                sheet_name=pr_sheet_name,
+                                code_col=find_col(sheets.get(pr_sheet_name, pd.DataFrame()), CODE_CANDIDATES),
+                                customer_code=cust_code,
+                                updated_fields={pr_col_name: new_project_rate}
+                            )
+                            if not ok2:
+                                msg += f" (Project Rate save failed: {msg2})"
                     if ok:
                         st.success(msg)
                         st.cache_data.clear()
